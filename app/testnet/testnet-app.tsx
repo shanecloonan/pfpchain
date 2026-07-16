@@ -404,38 +404,6 @@ export default function TestnetApp() {
             </ul>
           </section>
 
-          {/* Privacy note */}
-          <section className="space-y-3 rounded-xl border border-[var(--pw-line)] bg-[var(--pw-surface)]/40 px-5 py-6">
-            <h2 className="font-[family-name:var(--font-pw-display)] text-xl tracking-tight">
-              Privacy absolutism — lite explorer
-            </h2>
-            <p className="text-sm leading-relaxed text-[var(--pw-muted)]">
-              Ring signatures, stealth outputs, and encrypted amounts mean this is
-              not a transparent ledger. This page shows chain-wide pulse only:
-              tip cadence, aggregate tx shapes, treasury, permanence anchors, and
-              checkpoint digests. It never surfaces balances by address, ring
-              indices, or decrypted amounts.
-            </p>
-            <ul className="grid gap-2 text-[12px] text-[var(--pw-faint)] sm:grid-cols-2">
-              <li className="flex gap-2">
-                <span className="shrink-0 text-emerald-400/80">✓</span>
-                Ring-size histograms from tx wire shape
-              </li>
-              <li className="flex gap-2">
-                <span className="shrink-0 text-emerald-400/80">✓</span>
-                MFER / MFEO policy flags from chain params
-              </li>
-              <li className="flex gap-2">
-                <span className="shrink-0 text-emerald-400/80">✓</span>
-                Storage commitment hashes &amp; bucket sizes
-              </li>
-              <li className="flex gap-2">
-                <span className="shrink-0 text-red-400/80">✗</span>
-                No account graph · no amount transparency
-              </li>
-            </ul>
-          </section>
-
           {/* E) Links */}
           <section className="space-y-4">
             <h2 className="font-[family-name:var(--font-pw-display)] text-2xl sm:text-3xl tracking-tight">

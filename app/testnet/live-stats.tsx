@@ -4,8 +4,6 @@ import { useMemo, useState } from "react";
 import type { TestnetConfig } from "@/lib/testnet/types";
 import BlockChainGraphic from "./block-chain";
 import ChainAge from "./chain-age";
-import ChainVerifiability from "./chain-verifiability";
-import PrivacyPulse from "./privacy-pulse";
 import {
   formatDateTime,
   formatTime,
@@ -65,6 +63,12 @@ export default function LiveStats({
     config.slot_duration_ms,
   ]);
 
+  const treasury = formatMfn(
+    live.chainParams?.treasury_base_units,
+    live.chainParams?.mfn_decimals,
+  );
+  const checkpoint = live.checkpoint;
+
   if (variant === "hero") {
     if (!live.proxyUrl) {
       return (
@@ -79,7 +83,6 @@ export default function LiveStats({
         id="live"
         className="flex w-full flex-col pt-1 sm:h-full sm:min-h-0 sm:flex-1 sm:justify-end sm:pt-2"
       >
-        {/* Always mount — empty/loading is handled inside so the box never unmounts. */}
         <BlockChainGraphic
           headers={live.headers}
           tipHeight={tipHeight}
@@ -103,7 +106,7 @@ export default function LiveStats({
     return (
       <section className="scroll-mt-8">
         <SectionHead
-          title="Live tip"
+          title="Live network"
           lead="Observer proxy not configured — join steps below still work offline."
         />
         <div className="rounded-xl border border-dashed border-[var(--pw-line)] bg-[var(--pw-surface)]/50 px-5 py-8 text-center">
@@ -121,12 +124,12 @@ export default function LiveStats({
 
   return (
     <section className="scroll-mt-8 space-y-8 md:space-y-10">
-      <SectionHead title="Network pulse" />
+      <SectionHead title="Live network" />
 
       {stale && !live.error && (
         <div className="rounded-lg border border-amber-500/40 bg-amber-950/30 px-4 py-3 text-sm text-amber-100/90">
-          Tip looks stale — height has not advanced for over 2 minutes (slot is{" "}
-          {config.slot_duration_ms / 1000}s). Mesh or observer may be lagging.
+          Tip looks stale — height has not advanced for over 2 minutes. Mesh or
+          observer may be lagging.
         </div>
       )}
 
@@ -136,6 +139,7 @@ export default function LiveStats({
         </div>
       )}
 
+      {/* Dynamic pulse only — values that move with the mesh */}
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-3">
         <ChainAge launchTimestamp={config.launch_timestamp} />
         <Stat
@@ -150,6 +154,16 @@ export default function LiveStats({
           mono
         />
         <Stat
+          label="Treasury"
+          value={
+            live.loading && !live.chainParams
+              ? "…"
+              : treasury ?? "—"
+          }
+          mono
+          hint="Protocol-owned pool"
+        />
+        <Stat
           label="User transactions"
           value={
             live.txTotals?.totalTxCount != null
@@ -157,13 +171,6 @@ export default function LiveStats({
               : live.loading
                 ? "…"
                 : "—"
-          }
-          title={
-            live.txTotals
-              ? live.txTotals.complete
-                ? `Non-coinbase txs in blocks 1–${live.txTotals.tipHeight}`
-                : `Scanning… ${live.txTotals.coveredHeights}/${live.txTotals.tipHeight} blocks`
-              : undefined
           }
           mono
           hint={
@@ -175,16 +182,17 @@ export default function LiveStats({
           }
         />
         <Stat
-          label="Validators"
+          label="Mempool"
           value={
-            chain?.validator_count ??
-            (live.loading ? "…" : config.validator_committee_size)
+            live.mempoolPulse != null
+              ? String(live.mempoolPulse.poolLen)
+              : live.status?.mempool?.pool_len ?? (live.loading ? "…" : "—")
           }
         />
         <Stat
-          label="Mempool"
+          label="Validators online"
           value={
-            live.status?.mempool?.pool_len ?? (live.loading ? "…" : "—")
+            chain?.validator_count ?? (live.loading ? "…" : "—")
           }
         />
         <Stat
@@ -197,16 +205,24 @@ export default function LiveStats({
                 : "—"
           }
         />
+        <Stat
+          label="Storage anchors"
+          value={
+            live.storagePulse?.totalAnchors != null
+              ? live.storagePulse.totalAnchors.toLocaleString()
+              : loadingDash(live.loading)
+          }
+          hint={
+            live.storagePulse?.avgReplication != null
+              ? `avg replication ×${live.storagePulse.avgReplication}`
+              : undefined
+          }
+        />
       </div>
 
       <p className="text-[11px] tracking-wide text-[var(--pw-faint)]">
         Last refreshed {formatTime(live.refreshedAt)}
         {live.proxyUrl ? " · via observer proxy" : ""}
-        {live.txTotals?.complete
-          ? " · user txs excl. coinbase"
-          : live.txTotals
-            ? " · user-tx total still backfilling"
-            : ""}
       </p>
 
       {recentBlocks.length > 0 && (
@@ -310,34 +326,40 @@ export default function LiveStats({
               );
             })}
           </ul>
-          {live.storagePulse?.totalAnchors != null && (
-            <p className="text-[10px] text-[var(--pw-faint)]">
-              {live.storagePulse.totalAnchors.toLocaleString()} storage anchors
-              on-chain · hashes only, no plaintext payload
-            </p>
-          )}
         </div>
       )}
 
-      <div className="space-y-8 border-t border-[var(--pw-line)] pt-8 md:space-y-10 md:pt-10">
-        <PrivacyPulse
-          chainParams={live.chainParams}
-          privacySample={live.privacySample}
-          loading={live.loading}
-        />
-      </div>
-
-      <div className="space-y-8 border-t border-[var(--pw-line)] pt-8 md:space-y-10 md:pt-10">
-        <ChainVerifiability
-          chainParams={live.chainParams}
-          checkpoint={live.checkpoint}
-          fraudContests={live.fraudContests}
-          storagePulse={live.storagePulse}
-          mempoolPulse={live.mempoolPulse}
-          p2pDiversity={live.status?.p2p?.distinct_ipv4_prefix16 ?? null}
-          loading={live.loading}
-        />
-      </div>
+      {checkpoint && (
+        <div className="rounded-xl border border-[var(--pw-line)] bg-[var(--pw-surface)]/50 px-4 py-4 sm:px-5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--pw-faint)]">
+            Light-client checkpoint (tip)
+          </p>
+          <dl className="mt-3 grid grid-cols-1 gap-3 min-[480px]:grid-cols-2">
+            <div>
+              <dt className="text-[9px] uppercase tracking-[0.12em] text-[var(--pw-faint)]">
+                Checkpoint digest
+              </dt>
+              <dd
+                className="mt-0.5 break-all font-mono text-[11px] text-[var(--pw-ink)] sm:text-[12px]"
+                title={checkpoint.checkpoint_digest}
+              >
+                {truncateId(checkpoint.checkpoint_digest, 8, 8)}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-[9px] uppercase tracking-[0.12em] text-[var(--pw-faint)]">
+                Tip block id
+              </dt>
+              <dd
+                className="mt-0.5 break-all font-mono text-[11px] text-[var(--pw-ink)] sm:text-[12px]"
+                title={checkpoint.tip_block_id}
+              >
+                {truncateId(checkpoint.tip_block_id, 8, 8)}
+              </dd>
+            </div>
+          </dl>
+        </div>
+      )}
     </section>
   );
 }
@@ -388,8 +410,27 @@ function SectionHead({ title, lead }: { title: string; lead?: string }) {
   );
 }
 
+function loadingDash(loading: boolean): string {
+  return loading ? "…" : "—";
+}
+
 function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KiB`;
   return `${(n / (1024 * 1024)).toFixed(2)} MiB`;
+}
+
+function formatMfn(baseUnits?: string, decimals?: number): string | null {
+  if (!baseUnits || decimals == null) return null;
+  try {
+    const raw = BigInt(baseUnits);
+    const base = 10n ** BigInt(decimals);
+    const whole = raw / base;
+    const frac = raw % base;
+    if (frac === 0n) return `${whole} MFN`;
+    const fracStr = frac.toString().padStart(decimals, "0").replace(/0+$/, "");
+    return `${whole}.${fracStr} MFN`;
+  } catch {
+    return null;
+  }
 }
