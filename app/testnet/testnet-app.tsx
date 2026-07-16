@@ -192,8 +192,9 @@ export default function TestnetApp() {
             <p className="pw-fade text-[11px] font-semibold uppercase tracking-[0.28em] text-[var(--pw-accent)]">
               Experimental public testnet
             </p>
-            <h1 className="pw-fade-delay mt-3 font-[family-name:var(--font-pw-display)] text-[clamp(1.75rem,7vw,3.5rem)] font-semibold leading-[1.05] tracking-tight text-[var(--pw-ink)]">
-              PFP Chain: Privacy-Funded Permanence
+            <h1 className="pw-fade-delay mt-3 font-[family-name:var(--font-pw-display)] text-[clamp(1.85rem,7.5vw,3.75rem)] font-semibold leading-[1.08] tracking-tight text-[var(--pw-ink)]">
+              <span className="block">PFP Chain:</span>
+              <span className="block">Privacy-Funded Permanence</span>
             </h1>
             <p className="pw-fade-delay-2 mt-5 text-[11px] tracking-wide text-[var(--pw-faint)]">
               {config.network_id} · committee {config.validator_committee_size} ·

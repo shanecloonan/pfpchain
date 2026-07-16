@@ -167,10 +167,10 @@ export default function BlockChainGraphic({
       </div>
 
       <div
-        className={`relative min-h-0 overflow-hidden rounded-2xl border border-[var(--pw-line)] bg-gradient-to-br from-[rgba(16,28,24,0.95)] via-[rgba(10,18,16,0.92)] to-[rgba(8,14,12,0.98)] ${
+        className={`relative min-h-0 overflow-hidden rounded-xl border border-[var(--pw-line)] bg-gradient-to-br from-[rgba(16,28,24,0.95)] via-[rgba(10,18,16,0.92)] to-[rgba(8,14,12,0.98)] ${
           fill
-            ? "px-2.5 py-2.5 sm:flex sm:flex-1 sm:flex-col sm:justify-center sm:px-5 sm:py-5"
-            : "px-3 py-5 sm:px-5 sm:py-6"
+            ? "px-1.5 py-2 sm:flex sm:flex-1 sm:flex-col sm:justify-center sm:px-2.5 sm:py-3"
+            : "px-2 py-3 sm:px-3 sm:py-4"
         }`}
       >
         <div
@@ -226,7 +226,7 @@ export default function BlockChainGraphic({
                 >
                   {i > 0 && (
                     <div
-                      className="relative mx-0.5 h-px w-7 shrink-0 sm:mx-1 sm:w-10 md:w-14"
+                      className="relative mx-0.5 h-px w-5 shrink-0 sm:mx-1 sm:w-8 md:w-10"
                       aria-hidden
                     >
                       <span className="absolute inset-0 origin-left scale-x-100 bg-gradient-to-r from-[var(--pw-accent)]/70 to-[var(--pw-accent)]/25" />
@@ -244,11 +244,11 @@ export default function BlockChainGraphic({
                     onClick={() =>
                       setSelected(selected === b.height ? null : b.height)
                     }
-                    className="group relative w-[7.75rem] text-left sm:w-[9.5rem] md:w-[10.5rem]"
+                    className="group relative w-[9.25rem] text-left sm:w-[11rem] md:w-[12rem]"
                     aria-pressed={selected === b.height}
                   >
                     <div
-                      className={`relative overflow-hidden rounded-xl border px-3 py-3 backdrop-blur-sm transition-colors sm:px-3.5 ${
+                      className={`relative overflow-hidden rounded-xl border px-3.5 py-3.5 backdrop-blur-sm transition-colors sm:px-4 sm:py-4 ${
                         isTip
                           ? "border-[var(--pw-accent)]/55 bg-[var(--pw-accent-soft)] shadow-[0_0_28px_rgba(196,163,90,0.18)]"
                           : selected === b.height
@@ -268,7 +268,7 @@ export default function BlockChainGraphic({
                       )}
                       <div className="relative flex items-start justify-between gap-1">
                         <span
-                          className={`font-mono text-lg font-semibold tracking-tight ${
+                          className={`font-mono text-xl font-semibold tracking-tight sm:text-2xl ${
                             isTip
                               ? "text-[var(--pw-accent)]"
                               : "text-[var(--pw-ink)]"
@@ -282,10 +282,10 @@ export default function BlockChainGraphic({
                           </span>
                         )}
                       </div>
-                      <p className="relative mt-1.5 text-[10px] tabular-nums text-[var(--pw-muted)] sm:text-[11px]">
+                      <p className="relative mt-2 text-[11px] tabular-nums text-[var(--pw-muted)] sm:text-[12px]">
                         {formatDateTime(b.whenMs)}
                       </p>
-                      <p className="relative mt-0.5 text-[10px] tabular-nums text-[var(--pw-muted)] sm:text-[11px]">
+                      <p className="relative mt-0.5 text-[11px] tabular-nums text-[var(--pw-muted)] sm:text-[12px]">
                         {b.userTxCount != null
                           ? `${b.userTxCount} transaction${b.userTxCount === 1 ? "" : "s"}`
                           : b.txCount != null
@@ -293,7 +293,7 @@ export default function BlockChainGraphic({
                             : "… transactions"}
                       </p>
                       <p
-                        className="relative mt-1 truncate font-mono text-[10px] text-[var(--pw-faint)]"
+                        className="relative mt-1.5 truncate font-mono text-[11px] text-[var(--pw-faint)]"
                         title={b.id}
                       >
                         {truncateId(b.id, 6, 4)}
@@ -306,7 +306,7 @@ export default function BlockChainGraphic({
 
             <li className="flex shrink-0 items-center">
               <div
-                className="relative mx-0.5 h-px w-7 shrink-0 sm:mx-1 sm:w-10 md:w-14"
+                className="relative mx-0.5 h-px w-5 shrink-0 sm:mx-1 sm:w-8 md:w-10"
                 aria-hidden
               >
                 <span
@@ -318,16 +318,16 @@ export default function BlockChainGraphic({
                   }}
                 />
               </div>
-              <div className="relative w-[7.75rem] sm:w-[9.5rem] md:w-[10.5rem]">
+              <div className="relative w-[9.25rem] sm:w-[11rem] md:w-[12rem]">
                 <div
-                  className={`rounded-xl border border-dashed px-3 py-3 sm:px-3.5 ${
+                  className={`rounded-xl border border-dashed px-3.5 py-3.5 sm:px-4 sm:py-4 ${
                     inSlotWindow
                       ? "border-[var(--pw-accent)]/30 bg-[rgba(12,22,18,0.45)]"
                       : "border-[var(--pw-accent)]/50 bg-[var(--pw-accent-soft)]/40"
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono text-lg font-semibold tracking-tight text-[var(--pw-faint)]">
+                    <span className="font-mono text-xl font-semibold tracking-tight text-[var(--pw-faint)] sm:text-2xl">
                       #{tip != null ? tip + 1 : "…"}
                     </span>
                     <span
@@ -335,10 +335,10 @@ export default function BlockChainGraphic({
                       style={{ animation: "pwPulse 1.4s ease-in-out infinite" }}
                     />
                   </div>
-                  <p className="mt-1.5 text-[11px] text-[var(--pw-faint)]">
+                  <p className="mt-2 text-[12px] text-[var(--pw-faint)]">
                     {inSlotWindow ? "Building…" : "Awaiting tip…"}
                   </p>
-                  <div className="mt-2 h-1 overflow-hidden rounded-full bg-[var(--pw-line)]">
+                  <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-[var(--pw-line)]">
                     <div
                       className="h-full rounded-full bg-gradient-to-r from-[var(--pw-accent)]/40 to-[var(--pw-accent)]"
                       style={{
@@ -347,7 +347,7 @@ export default function BlockChainGraphic({
                       }}
                     />
                   </div>
-                  <p className="mt-1.5 text-[10px] tabular-nums text-[var(--pw-faint)]">
+                  <p className="mt-1.5 text-[11px] tabular-nums text-[var(--pw-faint)]">
                     {etaLabel}
                   </p>
                 </div>
