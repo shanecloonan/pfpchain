@@ -74,7 +74,6 @@ export default function BlockChainGraphic({
   const [selected, setSelected] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const scrollerRef = useRef<HTMLOListElement | null>(null);
-  const tipTailRef = useRef<HTMLLIElement | null>(null);
   const heightKey = blocks.map((b) => b.height).join(",");
   // Prefer measured tip cadence when we have samples; else configured 30s slot.
   const cadenceMs =
@@ -109,21 +108,15 @@ export default function BlockChainGraphic({
     return () => clearInterval(id);
   }, []);
 
-  // Keep tip + building ghost pinned at the right edge of the viewport.
+  // Scroll the horizontal chain strip to the tip (does not jump the page).
   useEffect(() => {
-    const el = tipTailRef.current;
     const scroller = scrollerRef.current;
-    if (!el || !scroller) return;
+    if (!scroller) return;
     const id = requestAnimationFrame(() => {
       scroller.scrollLeft = Math.max(
         0,
         scroller.scrollWidth - scroller.clientWidth,
       );
-      el.scrollIntoView({
-        behavior: "smooth",
-        inline: "end",
-        block: "nearest",
-      });
     });
     return () => cancelAnimationFrame(id);
   }, [tipHeight, heightKey, revealed.size]);
@@ -340,7 +333,7 @@ export default function BlockChainGraphic({
               );
             })}
 
-            <li ref={tipTailRef} className="flex shrink-0 items-center">
+            <li className="flex shrink-0 items-center">
               <div
                 className="relative mx-0.5 h-px w-7 shrink-0 sm:mx-1 sm:w-10 md:w-14"
                 aria-hidden

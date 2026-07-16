@@ -3,10 +3,10 @@ import TestnetApp from "./testnet-app";
 
 export const metadata: Metadata = {
   title: {
-    absolute: "Permawrite Public Testnet",
+    absolute: "PFP chain",
   },
   description:
-    "Permawrite experimental public testnet — join steps, boot peers, and live tip from the public mesh.",
+    "PFP chain experimental public testnet — join steps, boot peers, and live tip from the public mesh.",
   robots: { index: true, follow: true },
 };
 

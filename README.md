@@ -1,6 +1,6 @@
 # pfpchain
 
-Public homepage for the **Permawrite** experimental testnet (ported from the Cloonan Group `/testnet` page).
+Public homepage for the **PFP chain** experimental testnet (ported from the Cloonan Group `/testnet` page).
 
 ## Getting Started
 
@@ -13,7 +13,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## What is included
 
-- Homepage: full Permawrite public testnet UI (wallet, live stats, join guides)
+- Homepage: full PFP chain public testnet UI (wallet, live stats, join guides)
 - `/testnet` route: same page
 - `/api/testnet/rpc` — HTTPS bridge to the observer JSON-RPC proxy
 - `/api/testnet/faucet` — faucet HTTP bridge

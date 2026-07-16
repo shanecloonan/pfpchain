@@ -28,7 +28,7 @@ const mono = IBM_Plex_Mono({
 });
 
 const FALLBACK: TestnetConfig = {
-  product: "Permawrite",
+  product: "PFP chain",
   network_id: "public-devnet-v1",
   genesis_id:
     "454fa5d4a9bd6f59e35cf9ea7e68c096c9a271a92b2ec5931184e7f34a42a005",
@@ -193,7 +193,7 @@ export default function TestnetApp() {
               Experimental public testnet
             </p>
             <h1 className="pw-fade-delay mt-3 font-[family-name:var(--font-pw-display)] text-[clamp(2.5rem,9vw,4.25rem)] font-semibold leading-[0.95] tracking-tight text-[var(--pw-ink)]">
-              Permawrite
+              PFP chain
             </h1>
             <div className="pw-fade-delay-2 mt-6 sm:mt-7">
               <a
