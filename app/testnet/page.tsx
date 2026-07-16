@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import TestnetApp from "./testnet/testnet-app";
+import TestnetApp from "./testnet-app";
 
 export const metadata: Metadata = {
   title: {
@@ -10,6 +10,6 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
-export default function Home() {
+export default function TestnetPage() {
   return <TestnetApp />;
 }
