@@ -3,10 +3,10 @@ import TestnetApp from "./testnet/testnet-app";
 
 export const metadata: Metadata = {
   title: {
-    absolute: "PFP chain",
+    absolute: "PFP Chain: Privacy-Funded Permanence",
   },
   description:
-    "PFP chain experimental public testnet — join steps, boot peers, and live tip from the public mesh.",
+    "PFP Chain: Privacy-Funded Permanence — experimental public testnet, join steps, boot peers, and live tip from the public mesh.",
   robots: { index: true, follow: true },
 };
 

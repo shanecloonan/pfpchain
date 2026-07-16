@@ -28,7 +28,7 @@ const mono = IBM_Plex_Mono({
 });
 
 const FALLBACK: TestnetConfig = {
-  product: "PFP chain",
+  product: "PFP Chain",
   network_id: "public-devnet-v1",
   genesis_id:
     "454fa5d4a9bd6f59e35cf9ea7e68c096c9a271a92b2ec5931184e7f34a42a005",
@@ -192,17 +192,9 @@ export default function TestnetApp() {
             <p className="pw-fade text-[11px] font-semibold uppercase tracking-[0.28em] text-[var(--pw-accent)]">
               Experimental public testnet
             </p>
-            <h1 className="pw-fade-delay mt-3 font-[family-name:var(--font-pw-display)] text-[clamp(2.5rem,9vw,4.25rem)] font-semibold leading-[0.95] tracking-tight text-[var(--pw-ink)]">
-              PFP chain
+            <h1 className="pw-fade-delay mt-3 font-[family-name:var(--font-pw-display)] text-[clamp(1.75rem,7vw,3.5rem)] font-semibold leading-[1.05] tracking-tight text-[var(--pw-ink)]">
+              PFP Chain: Privacy-Funded Permanence
             </h1>
-            <div className="pw-fade-delay-2 mt-6 sm:mt-7">
-              <a
-                href="#wallet"
-                className="inline-flex h-12 w-full items-center justify-center rounded-md bg-[var(--pw-accent)] px-7 text-sm font-semibold tracking-wide text-[#0a1210] transition-opacity hover:opacity-90 sm:w-auto"
-              >
-                Generate wallet
-              </a>
-            </div>
             <p className="pw-fade-delay-2 mt-5 text-[11px] tracking-wide text-[var(--pw-faint)]">
               {config.network_id} · committee {config.validator_committee_size} ·
               slot {config.slot_duration_ms / 1000}s

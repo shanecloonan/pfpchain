@@ -117,8 +117,11 @@ export function useLiveSnapshot(config: TestnetConfig): LiveSnapshotState {
           return {
             status: snap.status,
             tip: snap.tip,
-            headers: snap.headers,
-            uploads: snap.uploads,
+            // Keep last good headers so the live chain graphic never blanks mid-poll.
+            headers:
+              snap.headers.length > 0 ? snap.headers : prev.headers,
+            uploads:
+              snap.uploads.length > 0 ? snap.uploads : prev.uploads,
             txTotals: snap.txTotals ?? prev.txTotals,
             chainParams: snap.chainParams ?? prev.chainParams,
             checkpoint: snap.checkpoint ?? prev.checkpoint,

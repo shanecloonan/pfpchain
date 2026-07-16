@@ -69,39 +69,29 @@ export default function BlockChainGraphic({
     return [...byH.values()].sort((a, b) => a.height - b.height);
   }, [headers, tipHeight, tipSeenAtMs, slotMs]);
 
-  const [revealed, setRevealed] = useState<Set<number>>(new Set());
-  const revealedRef = useRef<Set<number>>(new Set());
   const [selected, setSelected] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const scrollerRef = useRef<HTMLOListElement | null>(null);
-  const heightKey = blocks.map((b) => b.height).join(",");
+  // Keep last non-empty block list so a brief empty poll never blanks the box.
+  const stableBlocksRef = useRef<ChainBlockView[]>([]);
+  if (blocks.length > 0) {
+    stableBlocksRef.current = blocks;
+  }
+  const displayBlocks =
+    blocks.length > 0 ? blocks : stableBlocksRef.current;
+  const heightKey = displayBlocks.map((b) => b.height).join(",");
   // Prefer measured tip cadence when we have samples; else configured 30s slot.
   const cadenceMs =
     observedBlockIntervalMs != null && observedBlockIntervalMs > 0
       ? observedBlockIntervalMs
       : slotMs;
 
+  // Highlight the newest tip when it advances (no hide/reveal flicker).
   useEffect(() => {
-    if (!heightKey) return;
-    const heights = heightKey.split(",").map(Number).filter(Number.isFinite);
-    const missing = heights.filter((h) => !revealedRef.current.has(h));
-    if (missing.length === 0) return;
-
-    let cancelled = false;
-    const timers = missing.map((h, i) =>
-      setTimeout(() => {
-        if (cancelled) return;
-        revealedRef.current = new Set(revealedRef.current).add(h);
-        setRevealed(new Set(revealedRef.current));
-        setSelected(h);
-      }, i * 140),
-    );
-
-    return () => {
-      cancelled = true;
-      timers.forEach(clearTimeout);
-    };
-  }, [heightKey]);
+    if (displayBlocks.length === 0) return;
+    const tipBlock = displayBlocks[displayBlocks.length - 1];
+    if (tipBlock) setSelected(tipBlock.height);
+  }, [heightKey]); // eslint-disable-line react-hooks/exhaustive-deps -- only on tip chain change
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 250);
@@ -119,9 +109,10 @@ export default function BlockChainGraphic({
       );
     });
     return () => cancelAnimationFrame(id);
-  }, [tipHeight, heightKey, revealed.size]);
+  }, [tipHeight, heightKey]);
 
-  const tip = tipHeight ?? blocks[blocks.length - 1]?.height ?? null;
+  const tip =
+    tipHeight ?? displayBlocks[displayBlocks.length - 1]?.height ?? null;
   const elapsedMs =
     tipSeenAtMs != null ? Math.max(0, now - tipSeenAtMs) : null;
   const remainingMs =
@@ -145,23 +136,11 @@ export default function BlockChainGraphic({
           : `+${Math.floor(overdueMs / 1000)}s awaiting tip`;
 
   const selectedBlock =
-    selected != null ? blocks.find((b) => b.height === selected) : null;
+    selected != null
+      ? displayBlocks.find((b) => b.height === selected)
+      : null;
 
-  if (loading && blocks.length === 0) {
-    return (
-      <div
-        className={`pw-chain rounded-2xl border border-[var(--pw-line)] bg-[var(--pw-surface)]/50 px-4 text-center text-sm text-[var(--pw-muted)] ${
-          fill
-            ? "flex h-full min-h-[11rem] flex-1 items-center justify-center"
-            : "py-10"
-        }`}
-      >
-        Syncing chain…
-      </div>
-    );
-  }
-
-  if (blocks.length === 0) return null;
+  const empty = displayBlocks.length === 0;
 
   return (
     <div
@@ -215,24 +194,28 @@ export default function BlockChainGraphic({
         />
 
         <div className="relative z-[1] w-full">
+          {empty ? (
+            <div
+              className={`flex items-center justify-center text-sm text-[var(--pw-muted)] ${
+                fill ? "min-h-[11rem]" : "py-8"
+              }`}
+            >
+              {loading ? "Syncing chain…" : "Waiting for chain headers…"}
+            </div>
+          ) : (
           <ol
             ref={scrollerRef}
             className="flex items-center gap-0 overflow-x-auto pb-1 snap-x snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
-            {blocks.map((b, i) => {
+            {displayBlocks.map((b, i) => {
               const isTip = tip != null && b.height === tip;
-              const show = revealed.has(b.height);
-              const linkShow =
-                i > 0 &&
-                revealed.has(blocks[i - 1]!.height) &&
-                revealed.has(b.height);
               const intervalSec =
                 i > 0 &&
                 b.whenMs != null &&
-                blocks[i - 1]!.whenMs != null
+                displayBlocks[i - 1]!.whenMs != null
                   ? Math.max(
                       0,
-                      Math.round((b.whenMs - blocks[i - 1]!.whenMs!) / 1000),
+                      Math.round((b.whenMs - displayBlocks[i - 1]!.whenMs!) / 1000),
                     )
                   : null;
 
@@ -246,17 +229,9 @@ export default function BlockChainGraphic({
                       className="relative mx-0.5 h-px w-7 shrink-0 sm:mx-1 sm:w-10 md:w-14"
                       aria-hidden
                     >
-                      <span
-                        className={`absolute inset-0 origin-left bg-gradient-to-r from-[var(--pw-accent)]/70 to-[var(--pw-accent)]/25 transition-transform duration-500 ease-out ${
-                          linkShow ? "scale-x-100" : "scale-x-0"
-                        }`}
-                      />
-                      <span
-                        className={`absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--pw-accent)] transition-opacity duration-300 ${
-                          linkShow ? "opacity-100" : "opacity-0"
-                        }`}
-                      />
-                      {intervalSec != null && linkShow && (
+                      <span className="absolute inset-0 origin-left scale-x-100 bg-gradient-to-r from-[var(--pw-accent)]/70 to-[var(--pw-accent)]/25" />
+                      <span className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--pw-accent)] opacity-100" />
+                      {intervalSec != null && (
                         <span className="absolute left-1/2 top-2.5 -translate-x-1/2 whitespace-nowrap text-[9px] font-medium tabular-nums text-[var(--pw-accent)]/90">
                           {intervalSec}s
                         </span>
@@ -269,11 +244,7 @@ export default function BlockChainGraphic({
                     onClick={() =>
                       setSelected(selected === b.height ? null : b.height)
                     }
-                    className={`group relative w-[7.75rem] text-left transition-all duration-500 ease-out sm:w-[9.5rem] md:w-[10.5rem] ${
-                      show
-                        ? "opacity-100 translate-y-0 scale-100"
-                        : "pointer-events-none translate-y-3 scale-95 opacity-0"
-                    }`}
+                    className="group relative w-[7.75rem] text-left sm:w-[9.5rem] md:w-[10.5rem]"
                     aria-pressed={selected === b.height}
                   >
                     <div
@@ -383,6 +354,7 @@ export default function BlockChainGraphic({
               </div>
             </li>
           </ol>
+          )}
         </div>
       </div>
 

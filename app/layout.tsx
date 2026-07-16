@@ -14,11 +14,11 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "PFP chain",
-    template: "%s | PFP chain",
+    default: "PFP Chain: Privacy-Funded Permanence",
+    template: "%s | PFP Chain",
   },
   description:
-    "PFP chain experimental public testnet — join steps, boot peers, and live tip from the public mesh.",
+    "PFP Chain: Privacy-Funded Permanence — experimental public testnet, join steps, boot peers, and live tip from the public mesh.",
 };
 
 export default function RootLayout({

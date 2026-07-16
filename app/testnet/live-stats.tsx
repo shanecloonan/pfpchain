@@ -79,18 +79,17 @@ export default function LiveStats({
         id="live"
         className="flex w-full flex-col pt-1 sm:h-full sm:min-h-0 sm:flex-1 sm:justify-end sm:pt-2"
       >
-        {(live.headers.length > 0 || live.loading) && (
-          <BlockChainGraphic
-            headers={live.headers}
-            tipHeight={tipHeight}
-            tipSeenAtMs={live.tipChangedAt}
-            slotMs={config.slot_duration_ms}
-            observedBlockIntervalMs={live.observedBlockIntervalMs}
-            loading={live.loading}
-            fill
-            compact
-          />
-        )}
+        {/* Always mount — empty/loading is handled inside so the box never unmounts. */}
+        <BlockChainGraphic
+          headers={live.headers}
+          tipHeight={tipHeight}
+          tipSeenAtMs={live.tipChangedAt}
+          slotMs={config.slot_duration_ms}
+          observedBlockIntervalMs={live.observedBlockIntervalMs}
+          loading={live.loading}
+          fill
+          compact
+        />
         {live.error && (
           <p className="mt-2 shrink-0 text-[11px] text-red-300/90">
             {live.error}
