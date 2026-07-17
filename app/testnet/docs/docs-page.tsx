@@ -41,7 +41,7 @@ export default function DocsPage() {
               Upstream source
             </span>
             <span className="mt-1 block font-[family-name:var(--font-pw-display)] text-lg font-semibold text-[var(--pw-ink)] sm:text-xl">
-              pfpchain on GitHub
+              permawrite on GitHub
             </span>
             <span className="mt-1 block truncate font-mono text-[12px] text-[var(--pw-muted)]">
               {config.upstream_repo.replace("https://", "")}

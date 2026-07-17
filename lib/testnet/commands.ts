@@ -2,7 +2,7 @@ import type { TestnetConfig } from "./types";
 
 export function observerCommands(cfg: TestnetConfig) {
   const build = `git clone ${cfg.upstream_repo}.git
-cd pfpchain
+cd permawrite
 cargo build -p mfn-node --release --bin mfnd
 cargo build -p mfn-cli --release --bin mfn-cli`;
 
