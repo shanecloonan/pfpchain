@@ -28,7 +28,7 @@ export default function HomeShell({ children }: { children: ReactNode }) {
       className={`${display.variable} ${sans.variable} ${mono.variable} pw-theme relative min-h-screen`}
     >
       <div className="relative z-10 mx-auto w-full max-w-5xl px-4 pb-20 sm:px-8 sm:pb-24">
-        <SiteHeader variant="home" />
+        <SiteHeader />
         {children}
       </div>
     </div>

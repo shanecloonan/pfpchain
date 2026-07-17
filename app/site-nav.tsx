@@ -4,24 +4,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useId, useState } from "react";
 
-const TESTNET_ITEMS = [
+const NAV_ITEMS = [
   { href: "/", label: "Home" },
   { href: "/testnet/explore", label: "Explore" },
   { href: "/testnet/wallet", label: "Wallet" },
   { href: "/testnet/docs", label: "Docs" },
 ] as const;
 
-const HOME_ITEMS = [
-  { href: "/#privacy", label: "Privacy" },
-  { href: "/#permanence", label: "Permanence" },
-  { href: "/#consensus", label: "Consensus" },
-  { href: "/testnet/explore", label: "Testnet" },
-] as const;
-
 type NavItem = { href: string; label: string };
 
 function isActive(pathname: string, href: string) {
-  if (href.startsWith("/#")) return pathname === "/";
   return pathname === href;
 }
 
@@ -56,14 +48,9 @@ function NavLink({
   );
 }
 
-export default function SiteHeader({
-  variant = "testnet",
-}: {
-  variant?: "home" | "testnet";
-}) {
+export default function SiteHeader() {
   const pathname = usePathname();
-  const items: NavItem[] =
-    variant === "home" ? [...HOME_ITEMS] : [...TESTNET_ITEMS];
+  const items: NavItem[] = [...NAV_ITEMS];
   const [open, setOpen] = useState(false);
   const panelId = useId();
 
