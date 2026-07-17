@@ -13,8 +13,8 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## What is included
 
-- Homepage: full PFP Chain public testnet UI (wallet, live stats, join guides)
-- `/testnet` route: same page
+- Homepage: PFP Chain essential reference (privacy, permanence, consensus)
+- `/testnet` — public testnet UI (wallet, live stats, join guides)
 - `/api/testnet/rpc` — HTTPS bridge to the observer JSON-RPC proxy
 - `/api/testnet/faucet` — faucet HTTP bridge
 - `/testnet/config.json` + `mfn-wasm` package for browser wallet ops

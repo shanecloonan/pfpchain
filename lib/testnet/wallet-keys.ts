@@ -1,5 +1,5 @@
 /**
- * Browser-side Permawrite wallet key derivation (mfn_wallet_v1).
+ * Browser-side pfpchain wallet key derivation (mfn_wallet_v1).
  * Mirrors mfn-wallet::wallet_from_seed + mfn-cli address encoding.
  */
 

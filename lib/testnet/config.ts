@@ -7,7 +7,7 @@ export const FALLBACK_CONFIG: TestnetConfig = {
     "454fa5d4a9bd6f59e35cf9ea7e68c096c9a271a92b2ec5931184e7f34a42a005",
   /** VPS internet soak go-live 2026-07-14T03:01:02Z (not genesis JSON epoch). */
   launch_timestamp: 1783998062,
-  upstream_repo: "https://github.com/shanecloonan/permawrite",
+  upstream_repo: "https://github.com/shanecloonan/pfpchain",
   genesis_path: "mfn-node/testdata/public_devnet_v1.json",
   manifest_path: "mfn-node/testdata/public_devnet_v1.manifest.json",
   checkpoint_log_path: "mfn-node/testdata/public_devnet_v1.checkpoints.jsonl",
@@ -21,14 +21,14 @@ export const FALLBACK_CONFIG: TestnetConfig = {
   rpc_proxy_url: "/api/testnet/rpc",
   links: {
     invite:
-      "https://github.com/shanecloonan/permawrite/blob/main/docs/TESTNET_INVITE.md",
-    join: "https://github.com/shanecloonan/permawrite/blob/main/docs/JOIN_TESTNET.md",
+      "https://github.com/shanecloonan/pfpchain/blob/main/docs/TESTNET_INVITE.md",
+    join: "https://github.com/shanecloonan/pfpchain/blob/main/docs/JOIN_TESTNET.md",
     checkpoints:
-      "https://github.com/shanecloonan/permawrite/blob/main/docs/CHECKPOINT_LOG.md",
-    issues: "https://github.com/shanecloonan/permawrite/issues",
+      "https://github.com/shanecloonan/pfpchain/blob/main/docs/CHECKPOINT_LOG.md",
+    issues: "https://github.com/shanecloonan/pfpchain/issues",
     operators:
-      "https://github.com/shanecloonan/permawrite/blob/main/scripts/public-devnet-v1/OPERATORS.md",
+      "https://github.com/shanecloonan/pfpchain/blob/main/scripts/public-devnet-v1/OPERATORS.md",
     rpc_proxy:
-      "https://github.com/shanecloonan/permawrite/blob/main/scripts/public-devnet-v1/observer-rpc-proxy.mjs",
+      "https://github.com/shanecloonan/pfpchain/blob/main/scripts/public-devnet-v1/observer-rpc-proxy.mjs",
   },
 };

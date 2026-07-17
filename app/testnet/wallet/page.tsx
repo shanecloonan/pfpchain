@@ -4,7 +4,7 @@ import WalletPage from "./wallet-page";
 export const metadata: Metadata = {
   title: "Wallet",
   description:
-    "Generate a testnet wallet in your browser, fund from the faucet, and send MFN.",
+    "Generate a testnet wallet in your browser, fund from the faucet, and send PFP.",
 };
 
 export default function Page() {

@@ -1,7 +1,7 @@
 {
   "name": "mfn-wasm",
   "type": "module",
-  "description": "Permawrite — WebAssembly bindings for wallet and storage primitives (browser wallets, demos).",
+  "description": "pfpchain — WebAssembly bindings for wallet and storage primitives (browser wallets, demos).",
   "version": "0.1.0",
   "license": "MIT OR Apache-2.0",
   "files": [

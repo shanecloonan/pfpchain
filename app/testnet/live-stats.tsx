@@ -63,7 +63,7 @@ export default function LiveStats({
     config.slot_duration_ms,
   ]);
 
-  const treasury = formatMfn(
+  const treasury = formatPfp(
     live.chainParams?.treasury_base_units,
     live.chainParams?.mfn_decimals,
   );
@@ -420,16 +420,16 @@ function formatBytes(n: number): string {
   return `${(n / (1024 * 1024)).toFixed(2)} MiB`;
 }
 
-function formatMfn(baseUnits?: string, decimals?: number): string | null {
+function formatPfp(baseUnits?: string, decimals?: number): string | null {
   if (!baseUnits || decimals == null) return null;
   try {
     const raw = BigInt(baseUnits);
     const base = 10n ** BigInt(decimals);
     const whole = raw / base;
     const frac = raw % base;
-    if (frac === 0n) return `${whole} MFN`;
+    if (frac === 0n) return `${whole} PFP`;
     const fracStr = frac.toString().padStart(decimals, "0").replace(/0+$/, "");
-    return `${whole}.${fracStr} MFN`;
+    return `${whole}.${fracStr} PFP`;
   } catch {
     return null;
   }
