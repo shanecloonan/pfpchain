@@ -1,15 +1,5 @@
-import type { Metadata } from "next";
-import TestnetApp from "./testnet-app";
-
-export const metadata: Metadata = {
-  title: {
-    absolute: "PFP Chain: Privacy-Funded Permanence",
-  },
-  description:
-    "PFP Chain: Privacy-Funded Permanence — experimental public testnet, join steps, boot peers, and live tip from the public mesh.",
-  robots: { index: true, follow: true },
-};
+import { redirect } from "next/navigation";
 
 export default function TestnetPage() {
-  return <TestnetApp />;
+  redirect("/testnet/explore");
 }
