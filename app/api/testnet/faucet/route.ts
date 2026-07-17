@@ -52,7 +52,11 @@ export async function GET(req: NextRequest) {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json(
-      { ok: false, error: `faucet upstream unreachable: ${msg}` },
+      {
+        ok: false,
+        error: `faucet upstream unreachable: ${msg}`,
+        hint: "VPS port 8788 is down (faucet-http not running). Restart on the server: bash /root/permawrite/scripts/public-devnet-v1/vps-update-faucet.sh",
+      },
       { status: 502 },
     );
   }
@@ -89,7 +93,7 @@ export async function POST(req: NextRequest) {
       {
         ok: false,
         error: `faucet upstream unreachable: ${msg}`,
-        hint: "VPS faucet may be down — check http://5.161.201.73:8788/health",
+        hint: "VPS port 8788 is closed — faucet-http process is not listening. Restart on the server (Rescue SSH if needed): cd /root/permawrite && git pull && bash scripts/public-devnet-v1/vps-update-faucet.sh",
       },
       { status: 502 },
     );
