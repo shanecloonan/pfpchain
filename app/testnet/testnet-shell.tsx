@@ -1,9 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { Literata, IBM_Plex_Mono, Source_Sans_3 } from "next/font/google";
 import type { ReactNode } from "react";
-import NavMenu from "./nav-menu";
+import SiteHeader from "../site-nav";
 import { TestnetProvider } from "./testnet-provider";
 
 const display = Literata({
@@ -108,15 +107,7 @@ export default function TestnetShell({ children }: { children: ReactNode }) {
         />
 
         <div className="relative z-10 mx-auto w-full max-w-4xl overflow-x-clip px-4 sm:px-8 pb-20 sm:pb-24">
-          <div className="sticky top-0 z-30 -mx-4 flex items-center justify-between gap-4 border-b border-[var(--pw-line)] bg-[#0a1210]/85 px-4 py-3 backdrop-blur-md sm:-mx-8 sm:px-8">
-            <Link
-              href="/"
-              className="min-w-0 font-[family-name:var(--font-pw-display)] text-base font-semibold tracking-tight text-[var(--pw-ink)] transition-colors hover:text-[var(--pw-accent)] sm:text-lg"
-            >
-              PFP Chain
-            </Link>
-            <NavMenu />
-          </div>
+          <SiteHeader variant="testnet" />
 
           {children}
         </div>
