@@ -57,6 +57,11 @@ const SYNC_PREFIX = "pw-testnet-wallet-sync:";
 const SESSION_KEY = "pw-testnet-wallet-session";
 const HISTORY_PREFIX = "pw-testnet-wallet-history:";
 
+/** Parallel network fetches; wasm scan stays sequential (single-threaded). */
+const SCAN_FETCH_CONCURRENCY = 16;
+/** Persist sync state every N heights so a stalled tab doesn't lose progress. */
+const SCAN_SAVE_EVERY = 32;
+
 export type HistoryEntry = {
   id: string;
   kind: "received" | "sent" | "faucet";
@@ -89,6 +94,22 @@ export function loadSync(seedHex: string): WalletSyncState {
 
 export function saveSync(seedHex: string, state: WalletSyncState) {
   localStorage.setItem(SYNC_PREFIX + seedHex, JSON.stringify(state));
+}
+
+/**
+ * Brand-new wallets have never received funds. Mark them synced through tip
+ * so "Refresh balance" only scans blocks after generation (not 1..tip).
+ */
+export function markSyncedThrough(
+  seedHex: string,
+  tipHeight: number,
+): WalletSyncState {
+  const state = loadSync(seedHex);
+  if (tipHeight > state.lastScannedHeight) {
+    state.lastScannedHeight = tipHeight;
+    saveSync(seedHex, state);
+  }
+  return state;
 }
 
 export function totalBalance(state: WalletSyncState): number {
@@ -140,6 +161,28 @@ export function applyBlockScan(
   return newlyReceived;
 }
 
+async function mapPool<T, R>(
+  items: T[],
+  concurrency: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  if (items.length === 0) return [];
+  const results = new Array<R>(items.length);
+  let next = 0;
+  const workers = Array.from(
+    { length: Math.min(concurrency, items.length) },
+    async () => {
+      while (true) {
+        const i = next++;
+        if (i >= items.length) return;
+        results[i] = await fn(items[i]!);
+      }
+    },
+  );
+  await Promise.all(workers);
+  return results;
+}
+
 /** Trust-the-observer scan (no BLS light-client gate) for public testnet UI. */
 export async function syncWalletLite(opts: {
   seedHex: string;
@@ -147,7 +190,7 @@ export async function syncWalletLite(opts: {
   toHeight: number;
   state: WalletSyncState;
   rpc: <T>(method: string, params?: Record<string, unknown>) => Promise<T>;
-  onProgress?: (height: number, tip: number) => void;
+  onProgress?: (done: number, total: number, height: number) => void;
 }): Promise<{ recovered: number; balance: number }> {
   const { seedHex, toHeight, state, rpc, onProgress } = opts;
   let fromHeight = opts.fromHeight;
@@ -158,30 +201,56 @@ export async function syncWalletLite(opts: {
 
   const wasm = await loadMfnWasm();
   let recovered = 0;
+  const heights: number[] = [];
+  for (let h = fromHeight; h <= toHeight; h++) heights.push(h);
+  const total = heights.length;
+  let done = 0;
 
-  for (let h = fromHeight; h <= toHeight; h++) {
-    onProgress?.(h, toHeight);
-    const body = await rpc<{
-      txs?: Array<{ tx_hex?: string }>;
-    }>("get_block_txs", { height: h });
-    const txHexes = (body.txs || []).map((t) => t.tx_hex).filter(Boolean) as string[];
-    const scan = JSON.parse(
-      wasm.scanBlockTxsHex(seedHex, h, txHexes, state.ownedKeyImages),
-    ) as {
-      height?: number;
-      txs?: Array<{ spent_key_images?: string[]; recovered?: OwnedOutput[] }>;
-    };
-    const neu = applyBlockScan(state, { ...scan, height: h });
-    recovered += neu.length;
-    for (const o of neu) {
-      pushHistory(seedHex, {
-        id: `${o.tx_id_hex}:${o.output_idx}`,
-        kind: "received",
-        amount: o.value,
-        height: o.height,
-        txId: o.tx_id_hex,
-        at: Date.now(),
-      });
+  // Process in batches: parallel RPC fetch, then sequential wasm (not re-entrant).
+  for (let offset = 0; offset < heights.length; offset += SCAN_FETCH_CONCURRENCY) {
+    const batch = heights.slice(offset, offset + SCAN_FETCH_CONCURRENCY);
+    const fetched = await mapPool(batch, SCAN_FETCH_CONCURRENCY, async (h) => {
+      const body = await rpc<{
+        txs?: Array<{ tx_hex?: string }>;
+      }>("get_block_txs", { height: h });
+      const txHexes = (body.txs || [])
+        .map((t) => t.tx_hex)
+        .filter(Boolean) as string[];
+      return { h, txHexes };
+    });
+
+    fetched.sort((a, b) => a.h - b.h);
+    for (const { h, txHexes } of fetched) {
+      const scan = JSON.parse(
+        wasm.scanBlockTxsHex(seedHex, h, txHexes, state.ownedKeyImages),
+      ) as {
+        height?: number;
+        txs?: Array<{
+          spent_key_images?: string[];
+          recovered?: OwnedOutput[];
+        }>;
+      };
+      const neu = applyBlockScan(state, { ...scan, height: h });
+      recovered += neu.length;
+      for (const o of neu) {
+        pushHistory(seedHex, {
+          id: `${o.tx_id_hex}:${o.output_idx}`,
+          kind: "received",
+          amount: o.value,
+          height: o.height,
+          txId: o.tx_id_hex,
+          at: Date.now(),
+        });
+      }
+      done += 1;
+      onProgress?.(done, total, h);
+    }
+
+    if (
+      done % SCAN_SAVE_EVERY === 0 ||
+      offset + SCAN_FETCH_CONCURRENCY >= heights.length
+    ) {
+      saveSync(seedHex, state);
     }
   }
 

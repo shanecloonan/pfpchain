@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getRpcProxyUrl, rpcCall } from "@/lib/testnet/rpc";
 import {
   decodeWalletAddress,
@@ -12,6 +12,7 @@ import {
   loadHistory,
   loadSession,
   loadSync,
+  markSyncedThrough,
   pushHistory,
   saveSession,
   saveSync,
@@ -26,6 +27,9 @@ import { CopyButton, truncateId, useCopyFeedback } from "./ui";
 
 const FEE = 10_000;
 const RING = 16;
+/** After faucet, poll tip and auto-scan for this long. */
+const FAUCET_FOLLOW_MS = 90_000;
+const FAUCET_POLL_MS = 4_000;
 
 type Props = {
   rpcProxyUrl?: string | null;
@@ -44,6 +48,10 @@ export default function WalletGenerator({ rpcProxyUrl }: Props) {
   const [sendTo, setSendTo] = useState("");
   const [sendAmount, setSendAmount] = useState("100000");
   const [scanProgress, setScanProgress] = useState<string | null>(null);
+  const faucetFollowRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const sessionRef = useRef<SessionWallet | null>(null);
+  const scanningRef = useRef(false);
+  sessionRef.current = session;
 
   useEffect(() => {
     const s = loadSession();
@@ -53,30 +61,68 @@ export default function WalletGenerator({ rpcProxyUrl }: Props) {
     setHistory(loadHistory(s.seedHex));
   }, []);
 
-  const balance = useMemo(() => totalBalance(sync), [sync]);
-
-  const adopt = useCallback((w: GeneratedWallet) => {
-    const sess: SessionWallet = {
-      seedHex: w.seedHex,
-      address: w.address,
-      viewPubHex: w.viewPubHex,
-      spendPubHex: w.spendPubHex,
+  useEffect(() => {
+    return () => {
+      if (faucetFollowRef.current) clearInterval(faucetFollowRef.current);
     };
-    saveSession(sess);
-    setSession(sess);
-    const st = loadSync(w.seedHex);
-    setSync(st);
-    setHistory(loadHistory(w.seedHex));
-    setRevealed(false);
-    setError(null);
-    setStatus("Wallet ready — fund with the faucet, then refresh balance.");
   }, []);
 
+  const balance = useMemo(() => totalBalance(sync), [sync]);
+
+  const rpc = useCallback(
+    async <T,>(method: string, params: Record<string, unknown> = {}) =>
+      rpcCall<T>(proxy, method, params),
+    [proxy],
+  );
+
+  const adopt = useCallback(
+    async (w: GeneratedWallet) => {
+      const sess: SessionWallet = {
+        seedHex: w.seedHex,
+        address: w.address,
+        viewPubHex: w.viewPubHex,
+        spendPubHex: w.spendPubHex,
+      };
+      saveSession(sess);
+      setSession(sess);
+      setRevealed(false);
+      setError(null);
+
+      // Empty brand-new wallet: skip historical chain scan (was O(tip) RPC calls).
+      let state = loadSync(w.seedHex);
+      try {
+        const tip = await rpcCall<{ tip_height?: number }>(
+          proxy,
+          "get_tip",
+          {},
+        );
+        const tipH = Number(tip.tip_height ?? 0);
+        if (tipH >= 1) {
+          state = markSyncedThrough(w.seedHex, tipH);
+        }
+      } catch {
+        // offline tip — keep empty sync
+      }
+      setSync(state);
+      setHistory(loadHistory(w.seedHex));
+      setStatus(
+        state.lastScannedHeight > 0
+          ? `Wallet ready · synced through #${state.lastScannedHeight}. Fund with the faucet, then refresh after the next block.`
+          : "Wallet ready — fund with the faucet, then refresh balance.",
+      );
+    },
+    [proxy],
+  );
+
   const onGenerate = useCallback(() => {
-    adopt(generateTestnetWallet());
+    void adopt(generateTestnetWallet());
   }, [adopt]);
 
   const onForget = useCallback(() => {
+    if (faucetFollowRef.current) {
+      clearInterval(faucetFollowRef.current);
+      faucetFollowRef.current = null;
+    }
     clearSession();
     setSession(null);
     setSync(loadSync(""));
@@ -85,14 +131,10 @@ export default function WalletGenerator({ rpcProxyUrl }: Props) {
     setError(null);
   }, []);
 
-  const rpc = useCallback(
-    async <T,>(method: string, params: Record<string, unknown> = {}) =>
-      rpcCall<T>(proxy, method, params),
-    [proxy],
-  );
-
   const refreshBalance = useCallback(async () => {
-    if (!session) return;
+    const sess = sessionRef.current;
+    if (!sess || scanningRef.current) return;
+    scanningRef.current = true;
     setBusy("scan");
     setError(null);
     setStatus(null);
@@ -104,41 +146,103 @@ export default function WalletGenerator({ rpcProxyUrl }: Props) {
         setStatus("Chain has no blocks yet.");
         return;
       }
-      const state = loadSync(session.seedHex);
-      const from = Math.max(1, state.lastScannedHeight + 1);
+      const state = loadSync(sess.seedHex);
+      // Legacy sessions started at height 0 and would re-scan the whole chain.
+      // Cap catch-up window so a stale lastScannedHeight=0 is still usable.
+      let from = Math.max(1, state.lastScannedHeight + 1);
+      if (state.lastScannedHeight === 0 && tipH > 64) {
+        // Heuristic: brand-new / never-funded wallets never need full history.
+        from = Math.max(1, tipH - 48);
+        state.lastScannedHeight = from - 1;
+        saveSync(sess.seedHex, state);
+        setStatus(
+          `Fast-forwarding empty scan cursor to #${from - 1} (skip full history)…`,
+        );
+      }
       if (from > tipH) {
         setSync(state);
         setStatus(`Up to date through tip #${tipH}.`);
         return;
       }
+      const span = tipH - from + 1;
       const result = await syncWalletLite({
-        seedHex: session.seedHex,
+        seedHex: sess.seedHex,
         fromHeight: from,
         toHeight: tipH,
         state,
         rpc,
-        onProgress: (h, tipHeight) =>
-          setScanProgress(`Scanning block ${h} / ${tipHeight}`),
+        onProgress: (done, total, h) =>
+          setScanProgress(
+            span > 1
+              ? `Scanning ${done}/${total} · block #${h}`
+              : `Scanning block #${h}`,
+          ),
       });
       setSync({ ...state });
-      setHistory(loadHistory(session.seedHex));
+      setHistory(loadHistory(sess.seedHex));
       setStatus(
         `Synced to #${tipH} · balance ${result.balance.toLocaleString()} · +${result.recovered} output(s)`,
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
+      scanningRef.current = false;
       setBusy(null);
       setScanProgress(null);
     }
-  }, [session, rpc]);
+  }, [rpc]);
+
+  const startFaucetFollow = useCallback(() => {
+    if (faucetFollowRef.current) clearInterval(faucetFollowRef.current);
+    const started = Date.now();
+    let lastTip = 0;
+    faucetFollowRef.current = setInterval(() => {
+      void (async () => {
+        if (Date.now() - started > FAUCET_FOLLOW_MS) {
+          if (faucetFollowRef.current) {
+            clearInterval(faucetFollowRef.current);
+            faucetFollowRef.current = null;
+          }
+          return;
+        }
+        if (scanningRef.current) return;
+        try {
+          const tip = await rpc<{ tip_height?: number }>("get_tip", {});
+          const tipH = Number(tip.tip_height ?? 0);
+          if (tipH < 1) return;
+          if (tipH === lastTip) return;
+          lastTip = tipH;
+          const sess = sessionRef.current;
+          if (!sess) return;
+          const state = loadSync(sess.seedHex);
+          if (state.lastScannedHeight >= tipH) return;
+          setStatus(`New tip #${tipH} — scanning faucet funds…`);
+          await refreshBalance();
+        } catch {
+          // ignore follow errors
+        }
+      })();
+    }, FAUCET_POLL_MS);
+  }, [rpc, refreshBalance]);
 
   const claimFaucet = useCallback(async () => {
     if (!session) return;
     setBusy("faucet");
     setError(null);
-    setStatus(null);
+    setStatus("Requesting faucet (may take ~15–40s)…");
     try {
+      // Snapshot tip before claim so we only need to scan new blocks after.
+      try {
+        const tip = await rpc<{ tip_height?: number }>("get_tip", {});
+        const tipH = Number(tip.tip_height ?? 0);
+        if (tipH >= 1) {
+          const st = markSyncedThrough(session.seedHex, tipH);
+          setSync(st);
+        }
+      } catch {
+        // continue
+      }
+
       const res = await fetch("/api/testnet/faucet", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -150,9 +254,14 @@ export default function WalletGenerator({ rpcProxyUrl }: Props) {
         total_amount?: number;
         tx_ids?: string[];
         retry_after_ms?: number;
+        duration_ms?: number;
       };
       if (!res.ok || data.ok === false) {
-        throw new Error(data.error || `faucet HTTP ${res.status}`);
+        const extra =
+          data.retry_after_ms != null
+            ? ` · retry in ~${Math.ceil(data.retry_after_ms / 60000)}m`
+            : "";
+        throw new Error((data.error || `faucet HTTP ${res.status}`) + extra);
       }
       const total = data.total_amount ?? 0;
       for (const txId of data.tx_ids || []) {
@@ -167,15 +276,20 @@ export default function WalletGenerator({ rpcProxyUrl }: Props) {
         });
       }
       setHistory(loadHistory(session.seedHex));
+      const secs =
+        data.duration_ms != null
+          ? ` in ${(data.duration_ms / 1000).toFixed(1)}s`
+          : "";
       setStatus(
-        `Faucet sent ${total.toLocaleString()} atomic units across ${(data.tx_ids || []).length} tx(s). Wait for a block, then refresh balance.`,
+        `Faucet sent ${total.toLocaleString()} atomic units across ${(data.tx_ids || []).length} tx(s)${secs}. Watching for next block to credit balance…`,
       );
+      startFaucetFollow();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(null);
     }
-  }, [session]);
+  }, [session, rpc, startFaucetFollow]);
 
   const onSend = useCallback(async () => {
     if (!session) return;
@@ -258,9 +372,12 @@ export default function WalletGenerator({ rpcProxyUrl }: Props) {
         tx_hex: string;
         tx_id: string;
       };
-      const submit = await rpc<{ outcome?: string; tx_id?: string }>("submit_tx", {
-        tx_hex: built.tx_hex,
-      });
+      const submit = await rpc<{ outcome?: string; tx_id?: string }>(
+        "submit_tx",
+        {
+          tx_hex: built.tx_hex,
+        },
+      );
 
       const spent = new Set(pick.map((p) => p.key_image_hex.toLowerCase()));
       state.inputs = state.inputs.filter(
@@ -362,7 +479,7 @@ export default function WalletGenerator({ rpcProxyUrl }: Props) {
         <Stat
           label="Tip sync"
           value={scanProgress || (busy ? busy : "ready")}
-          hint="Observer-trusted scan"
+          hint="Parallel observer scan"
         />
         <Stat
           label="Fee"
@@ -421,7 +538,7 @@ export default function WalletGenerator({ rpcProxyUrl }: Props) {
         <button
           type="button"
           disabled={busy != null}
-          onClick={refreshBalance}
+          onClick={() => void refreshBalance()}
           className="inline-flex h-9 items-center rounded-md border border-[var(--pw-line)] bg-[var(--pw-surface)] px-3 text-xs font-semibold text-[var(--pw-ink)] disabled:opacity-50"
         >
           {busy === "scan" ? "Scanning…" : "Refresh balance"}
