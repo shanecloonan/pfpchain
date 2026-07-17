@@ -229,7 +229,7 @@ export default function WalletGenerator({ rpcProxyUrl }: Props) {
     if (!session) return;
     setBusy("faucet");
     setError(null);
-    setStatus("Requesting faucet (may take ~15–40s)…");
+    setStatus("Starting faucet job…");
     try {
       // Snapshot tip before claim so we only need to scan new blocks after.
       try {
@@ -248,21 +248,60 @@ export default function WalletGenerator({ rpcProxyUrl }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ address: session.address }),
       });
-      const data = (await res.json()) as {
+      const startData = (await res.json()) as {
         ok?: boolean;
         error?: string;
+        status?: string;
+        job_id?: string;
         total_amount?: number;
         tx_ids?: string[];
         retry_after_ms?: number;
         duration_ms?: number;
       };
-      if (!res.ok || data.ok === false) {
+      if (!res.ok || startData.ok === false) {
         const extra =
-          data.retry_after_ms != null
-            ? ` · retry in ~${Math.ceil(data.retry_after_ms / 60000)}m`
+          startData.retry_after_ms != null
+            ? ` · retry in ~${Math.ceil(startData.retry_after_ms / 60000)}m`
             : "";
-        throw new Error((data.error || `faucet HTTP ${res.status}`) + extra);
+        throw new Error(
+          (startData.error || `faucet HTTP ${res.status}`) + extra,
+        );
       }
+
+      // Async path (preferred): poll job until done. Sync path still supported.
+      let data = startData;
+      if (startData.job_id && startData.status !== "done") {
+        const jobId = startData.job_id;
+        const deadline = Date.now() + 5 * 60_000;
+        let attempt = 0;
+        while (Date.now() < deadline) {
+          attempt += 1;
+          setStatus(
+            `Faucet job running… (${attempt}s) — stays under serverless limits`,
+          );
+          await new Promise((r) => setTimeout(r, 2000));
+          const poll = await fetch(
+            `/api/testnet/faucet?job=${encodeURIComponent(jobId)}`,
+            { cache: "no-store" },
+          );
+          const body = (await poll.json()) as typeof startData & {
+            status?: string;
+          };
+          if (body.status === "done" || (body.ok && body.tx_ids)) {
+            data = body;
+            break;
+          }
+          if (body.status === "error" || body.ok === false) {
+            throw new Error(body.error || "faucet job failed");
+          }
+        }
+        if (data.status === "pending" || data.status === "running") {
+          throw new Error(
+            "Faucet still running after 5 minutes — check VPS faucet / mfn-cli",
+          );
+        }
+      }
+
       const total = data.total_amount ?? 0;
       for (const txId of data.tx_ids || []) {
         if (!txId) continue;
