@@ -34,21 +34,6 @@ export default function HomePage() {
             </span>
           ))}
         </div>
-
-        <div className="pw-fade-delay-2 flex flex-wrap gap-3">
-          <Link
-            href="/testnet/explore"
-            className="inline-flex items-center rounded-lg bg-[var(--pw-accent)] px-5 py-2.5 text-sm font-semibold text-[#0a1210] transition-opacity hover:opacity-90"
-          >
-            Explore testnet
-          </Link>
-          <Link
-            href="/testnet/docs"
-            className="inline-flex items-center rounded-lg border border-[var(--pw-line)] bg-[var(--pw-surface)]/60 px-5 py-2.5 text-sm font-semibold text-[var(--pw-ink)] transition-colors hover:border-[var(--pw-accent)]/40"
-          >
-            Join the mesh
-          </Link>
-        </div>
       </section>
 
       {/* 1. Privacy */}
@@ -572,12 +557,12 @@ function Callout({
 function GuaranteeList({ yes, no }: { yes: string; no: string }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
-      <div className="flex gap-3 rounded-xl border border-emerald-500/20 bg-emerald-950/20 px-4 py-3 text-sm text-[var(--pw-muted)]">
-        <span className="text-emerald-400/90">✓</span>
+      <div className="flex gap-3 rounded-xl border border-[var(--pw-line)] bg-[var(--pw-surface)] px-4 py-3 text-sm text-[var(--pw-muted)]">
+        <span className="text-[var(--pw-ink)]">✓</span>
         {yes}
       </div>
-      <div className="flex gap-3 rounded-xl border border-red-500/20 bg-red-950/15 px-4 py-3 text-sm text-[var(--pw-muted)]">
-        <span className="text-red-400/80">✗</span>
+      <div className="flex gap-3 rounded-xl border border-[var(--pw-line)] bg-[var(--pw-surface)] px-4 py-3 text-sm text-[var(--pw-muted)]">
+        <span className="text-[var(--pw-faint)]">✗</span>
         {no}
       </div>
     </div>

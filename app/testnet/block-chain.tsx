@@ -178,7 +178,7 @@ export default function BlockChainGraphic({
           className="pointer-events-none absolute inset-0 opacity-70"
           style={{
             background:
-              "radial-gradient(ellipse 55% 80% at 85% 40%, rgba(196,163,90,0.12), transparent 65%), radial-gradient(ellipse 40% 60% at 10% 80%, rgba(80,140,110,0.08), transparent 60%)",
+              "radial-gradient(ellipse 55% 80% at 85% 40%, rgba(255,255,255,0.06), transparent 65%), radial-gradient(ellipse 40% 60% at 10% 80%, rgba(255,255,255,0.04), transparent 60%)",
           }}
         />
         <div
@@ -250,10 +250,10 @@ export default function BlockChainGraphic({
                     <div
                       className={`relative overflow-hidden rounded-xl border px-3.5 py-3.5 backdrop-blur-sm transition-colors sm:px-4 sm:py-4 ${
                         isTip
-                          ? "border-[var(--pw-accent)]/55 bg-[var(--pw-accent-soft)] shadow-[0_0_28px_rgba(196,163,90,0.18)]"
+                          ? "border-[var(--pw-accent)]/55 bg-[var(--pw-accent-soft)] shadow-[0_0_28px_rgba(255,255,255,0.08)]"
                           : selected === b.height
                             ? "border-[var(--pw-accent)]/35 bg-[var(--pw-surface)]"
-                            : "border-[var(--pw-line)] bg-[rgba(12,22,18,0.75)] hover:border-[var(--pw-accent)]/30"
+                            : "border-[var(--pw-line)] bg-[var(--pw-surface)] hover:border-[var(--pw-accent)]/30"
                       }`}
                     >
                       {isTip && (
@@ -262,7 +262,7 @@ export default function BlockChainGraphic({
                           className="pw-tip-sheen absolute -inset-px rounded-xl"
                           style={{
                             background:
-                              "linear-gradient(135deg, rgba(196,163,90,0.25), transparent 45%)",
+                              "linear-gradient(135deg, rgba(255,255,255,0.12), transparent 45%)",
                           }}
                         />
                       )}
@@ -310,7 +310,7 @@ export default function BlockChainGraphic({
                 aria-hidden
               >
                 <span
-                  className="absolute inset-0 origin-left bg-[repeating-linear-gradient(90deg,rgba(196,163,90,0.45)_0_4px,transparent_4px_8px)]"
+                  className="absolute inset-0 origin-left bg-[repeating-linear-gradient(90deg,rgba(255,255,255,0.35)_0_4px,transparent_4px_8px)]"
                   style={{
                     transform: `scaleX(${0.25 + buildingProgress * 0.75})`,
                     transformOrigin: "left center",
@@ -322,7 +322,7 @@ export default function BlockChainGraphic({
                 <div
                   className={`rounded-xl border border-dashed px-3.5 py-3.5 sm:px-4 sm:py-4 ${
                     inSlotWindow
-                      ? "border-[var(--pw-accent)]/30 bg-[rgba(12,22,18,0.45)]"
+                      ? "border-[var(--pw-accent)]/30 bg-[var(--pw-surface)]"
                       : "border-[var(--pw-accent)]/50 bg-[var(--pw-accent-soft)]/40"
                   }`}
                 >

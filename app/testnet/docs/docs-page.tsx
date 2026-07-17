@@ -160,7 +160,7 @@ export default function DocsPage() {
               key={item}
               className="flex gap-3 border-b border-[var(--pw-line)] py-2.5 last:border-0"
             >
-              <span className="text-red-400/80" aria-hidden>
+              <span className="text-[var(--pw-faint)]" aria-hidden>
                 ×
               </span>
               {item}

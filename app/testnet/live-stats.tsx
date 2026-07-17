@@ -94,7 +94,7 @@ export default function LiveStats({
           compact
         />
         {live.error && (
-          <p className="mt-2 shrink-0 text-[11px] text-red-300/90">
+          <p className="mt-2 shrink-0 text-[11px] text-[var(--pw-muted)]">
             {live.error}
           </p>
         )}
@@ -127,14 +127,14 @@ export default function LiveStats({
       <SectionHead title="Live network" />
 
       {stale && !live.error && (
-        <div className="rounded-lg border border-amber-500/40 bg-amber-950/30 px-4 py-3 text-sm text-amber-100/90">
+        <div className="rounded-lg border border-[var(--pw-line)] bg-[var(--pw-surface)] px-4 py-3 text-sm text-[var(--pw-muted)]">
           Tip looks stale — height has not advanced for over 2 minutes. Mesh or
           observer may be lagging.
         </div>
       )}
 
       {live.error && (
-        <div className="rounded-lg border border-red-500/30 bg-red-950/25 px-4 py-3 text-sm text-red-200/90">
+        <div className="rounded-lg border border-[var(--pw-line)] bg-[var(--pw-surface)] px-4 py-3 text-sm text-[var(--pw-muted)]">
           Live stats error: {live.error}
         </div>
       )}

@@ -325,7 +325,7 @@ export default function WalletGenerator({ rpcProxyUrl }: Props) {
         <button
           type="button"
           onClick={onGenerate}
-          className="inline-flex h-10 items-center rounded-md bg-[var(--pw-accent)] px-4 text-sm font-semibold text-[#0a1210] transition-opacity hover:opacity-90"
+          className="inline-flex h-10 items-center rounded-md bg-[var(--pw-accent)] px-4 text-sm font-semibold text-black transition-opacity hover:opacity-90"
         >
           Generate wallet
         </button>
@@ -414,7 +414,7 @@ export default function WalletGenerator({ rpcProxyUrl }: Props) {
           type="button"
           disabled={busy != null}
           onClick={claimFaucet}
-          className="inline-flex h-9 items-center rounded-md bg-[var(--pw-accent)] px-3 text-xs font-semibold text-[#0a1210] disabled:opacity-50"
+          className="inline-flex h-9 items-center rounded-md bg-[var(--pw-accent)] px-3 text-xs font-semibold text-black disabled:opacity-50"
         >
           {busy === "faucet" ? "Funding…" : "Fund with faucet"}
         </button>
@@ -473,7 +473,7 @@ export default function WalletGenerator({ rpcProxyUrl }: Props) {
       {(status || error) && (
         <p
           className={`text-xs leading-relaxed ${
-            error ? "text-red-300/90" : "text-[var(--pw-muted)]"
+            error ? "text-[var(--pw-faint)]" : "text-[var(--pw-muted)]"
           }`}
         >
           {error || status}
@@ -506,7 +506,7 @@ export default function WalletGenerator({ rpcProxyUrl }: Props) {
                 <span
                   className={`shrink-0 font-mono tabular-nums ${
                     h.kind === "sent"
-                      ? "text-red-300/80"
+                      ? "text-[var(--pw-faint)]"
                       : "text-[var(--pw-accent)]"
                   }`}
                 >

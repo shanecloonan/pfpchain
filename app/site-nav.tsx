@@ -83,7 +83,7 @@ export default function SiteHeader({
   }, [open, close]);
 
   return (
-    <header className="sticky top-0 z-30 -mx-4 border-b border-[var(--pw-line)] bg-[#0a1210]/85 backdrop-blur-md sm:-mx-8">
+    <header className="sticky top-0 z-30 -mx-4 border-b border-[var(--pw-line)] bg-[var(--pw-bg)]/90 backdrop-blur-md sm:-mx-8">
       <div className="flex items-center justify-between gap-4 px-4 py-3 sm:px-8">
         <Link
           href="/"
