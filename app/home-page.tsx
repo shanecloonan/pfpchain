@@ -8,6 +8,12 @@ export default function HomePage() {
   return (
     <div className="space-y-20 pt-10 sm:space-y-28 sm:pt-14">
       <div className="space-y-3 sm:space-y-4">
+        <p className="font-[family-name:var(--font-pw-display)] text-lg leading-relaxed text-[var(--pw-ink)] sm:text-xl">
+          Privacy-tx fees fund a self-balancing storage treasury; users prepay
+          an endowment sized for perpetual bytes; operators prove random chunk
+          possession every block or lose pay (and eventually bond).
+        </p>
+
         <a
           href={upstreamRepo}
           target="_blank"
@@ -32,12 +38,6 @@ export default function HomePage() {
             ↗
           </span>
         </a>
-
-        <p className="font-[family-name:var(--font-pw-display)] text-lg leading-relaxed text-[var(--pw-ink)] sm:text-xl">
-          Privacy-tx fees fund a self-balancing storage treasury; users prepay
-          an endowment sized for perpetual bytes; operators prove random chunk
-          possession every block or lose pay (and eventually bond).
-        </p>
       </div>
 
       {/* 1. Privacy */}
