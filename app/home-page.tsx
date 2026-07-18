@@ -32,6 +32,14 @@ export default function HomePage() {
         </span>
       </a>
 
+      <blockquote className="rounded-2xl border border-[var(--pw-accent)]/30 bg-[var(--pw-accent-soft)] px-6 py-5 sm:px-8 sm:py-6">
+        <p className="font-[family-name:var(--font-pw-display)] text-lg leading-relaxed text-[var(--pw-ink)] sm:text-xl">
+          Privacy-tx fees fund a self-balancing storage treasury; users prepay
+          an endowment sized for perpetual bytes; operators prove random chunk
+          possession every block or lose pay (and eventually bond).
+        </p>
+      </blockquote>
+
       {/* 1. Privacy */}
       <Section
         id="privacy"
@@ -381,16 +389,8 @@ export default function HomePage() {
         </SubBlock>
       </Section>
 
-      {/* One-liner + footer CTA */}
+      {/* Footer CTA */}
       <section className="space-y-6 border-t border-[var(--pw-line)] pt-12">
-        <blockquote className="rounded-2xl border border-[var(--pw-accent)]/30 bg-[var(--pw-accent-soft)] px-6 py-5 sm:px-8 sm:py-6">
-          <p className="font-[family-name:var(--font-pw-display)] text-lg leading-relaxed text-[var(--pw-ink)] sm:text-xl">
-            Privacy-tx fees fund a self-balancing storage treasury; users prepay
-            an endowment sized for perpetual bytes; operators prove random chunk
-            possession every block or lose pay (and eventually bond).
-          </p>
-        </blockquote>
-
         <div className="flex flex-wrap items-center justify-between gap-4">
           <p className="text-sm text-[var(--pw-faint)]">
             PFP Chain · Privacy-Funded Permanence
