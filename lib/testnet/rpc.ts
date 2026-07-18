@@ -83,8 +83,8 @@ type BlockTxCounts = { all: number; user: number };
 const txCountCache = new Map<number, BlockTxCounts>();
 /** Privacy-safe shape cache keyed by height. */
 const txMetaCache = new Map<number, TxPrivacyMeta[]>();
-/** How many historical heights to fetch per live poll while backfilling a total. */
-const TX_COUNT_BACKFILL_BUDGET = 16;
+/** Fallback client backfill if observer proxy index is unavailable. */
+const TX_COUNT_BACKFILL_BUDGET = 48;
 /** Max mempool txs to sample for ring-shape stats per poll. */
 const MEMPOOL_SAMPLE_BUDGET = 6;
 
@@ -160,6 +160,27 @@ export async function fetchLiveSnapshot(
 
   if (tipHeight != null && tipHeight >= 1) {
     try {
+      // Prefer observer-proxy index (keeps explore totals caught up without
+      // re-scanning the whole chain through Vercel every poll).
+      try {
+        const indexed = await rpcCall<{
+          tip_height?: number;
+          covered_heights?: number;
+          total_user_tx_count?: number;
+          complete?: boolean;
+        }>(proxyUrl, "get_tx_count_totals", {}, signal);
+        const tip = Number(indexed.tip_height ?? tipHeight);
+        const covered = Number(indexed.covered_heights ?? 0);
+        txTotals = {
+          totalTxCount: Number(indexed.total_user_tx_count ?? 0),
+          coveredHeights: covered,
+          tipHeight: tip,
+          complete: Boolean(indexed.complete),
+        };
+      } catch {
+        // older proxy — fall through to client backfill
+      }
+
       const from = Math.max(1, tipHeight - 5);
       const raw = await rpcCall<unknown>(
         proxyUrl,
@@ -180,8 +201,18 @@ export async function fetchLiveSnapshot(
           ? { ...h, tx_count: c.all, user_tx_count: c.user }
           : h;
       });
-      await backfillTxCounts(proxyUrl, tipHeight, signal);
-      txTotals = summarizeTxCounts(tipHeight);
+      if (!txTotals?.complete) {
+        await backfillTxCounts(proxyUrl, tipHeight, signal);
+        const local = summarizeTxCounts(tipHeight);
+        // Keep proxy totals if they're further ahead; else use local.
+        if (
+          !txTotals ||
+          local.coveredHeights > txTotals.coveredHeights ||
+          local.complete
+        ) {
+          txTotals = local;
+        }
+      }
       privacySample = aggregatePrivacySamples(collectCachedPrivacyMetas());
     } catch {
       // optional — ignore

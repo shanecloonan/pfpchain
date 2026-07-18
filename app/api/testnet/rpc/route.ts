@@ -13,6 +13,8 @@ const PUBLIC_SAFE = new Set([
   "get_block_evolution",
   "get_block_headers",
   "get_block_txs",
+  "get_block_txs_range",
+  "get_tx_count_totals",
   "get_chain_params",
   "get_claims_by_pubkey",
   "get_claims_for",
@@ -91,7 +93,7 @@ export async function POST(req: NextRequest) {
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify(body),
       cache: "no-store",
-      signal: AbortSignal.timeout(20_000),
+      signal: AbortSignal.timeout(45_000),
     });
     const text = (await res.text()).trim();
     if (!res.ok) {

@@ -69,8 +69,10 @@ const SYNC_PREFIX = "pw-testnet-wallet-sync:";
 const SESSION_KEY = "pw-testnet-wallet-session";
 const HISTORY_PREFIX = "pw-testnet-wallet-history:";
 
-/** Parallel network fetches; wasm scan stays sequential (single-threaded). */
-const SCAN_FETCH_CONCURRENCY = 16;
+/** Parallel per-height fetches when range RPC is unavailable. */
+const SCAN_FETCH_CONCURRENCY = 24;
+/** Heights per get_block_txs_range call (observer proxy max is 32). */
+const SCAN_RANGE_SIZE = 32;
 /** Persist sync state every N heights so a stalled tab doesn't lose progress. */
 const SCAN_SAVE_EVERY = 32;
 
@@ -239,15 +241,40 @@ export async function syncWalletLite(opts: {
 
   const wasm = await loadMfnWasm();
   let recovered = 0;
-  const heights: number[] = [];
-  for (let h = fromHeight; h <= toHeight; h++) heights.push(h);
-  const total = heights.length;
+  const total = toHeight - fromHeight + 1;
   let done = 0;
+  let useRange = true;
 
-  // Process in batches: parallel RPC fetch, then sequential wasm (not re-entrant).
-  for (let offset = 0; offset < heights.length; offset += SCAN_FETCH_CONCURRENCY) {
-    const batch = heights.slice(offset, offset + SCAN_FETCH_CONCURRENCY);
-    const fetched = await mapPool(batch, SCAN_FETCH_CONCURRENCY, async (h) => {
+  async function fetchHeights(
+    batch: number[],
+  ): Promise<Array<{ h: number; txHexes: string[] }>> {
+    if (useRange && batch.length > 0) {
+      try {
+        const from = batch[0]!;
+        const to = batch[batch.length - 1]!;
+        const page = await rpc<{
+          blocks?: Array<{
+            height?: number;
+            txs?: Array<{ tx_hex?: string }>;
+          }>;
+        }>("get_block_txs_range", { from_height: from, to_height: to });
+        const byH = new Map<number, string[]>();
+        for (const b of page.blocks || []) {
+          const h = Number(b.height);
+          if (!Number.isFinite(h)) continue;
+          byH.set(
+            h,
+            (b.txs || [])
+              .map((t) => t.tx_hex)
+              .filter(Boolean) as string[],
+          );
+        }
+        return batch.map((h) => ({ h, txHexes: byH.get(h) || [] }));
+      } catch {
+        useRange = false;
+      }
+    }
+    return mapPool(batch, SCAN_FETCH_CONCURRENCY, async (h) => {
       const body = await rpc<{
         txs?: Array<{ tx_hex?: string }>;
       }>("get_block_txs", { height: h });
@@ -256,7 +283,14 @@ export async function syncWalletLite(opts: {
         .filter(Boolean) as string[];
       return { h, txHexes };
     });
+  }
 
+  // Prefer batched range RPC (one Vercel hop / N heights); wasm stays sequential.
+  for (let h0 = fromHeight; h0 <= toHeight; h0 += SCAN_RANGE_SIZE) {
+    const h1 = Math.min(toHeight, h0 + SCAN_RANGE_SIZE - 1);
+    const batch: number[] = [];
+    for (let h = h0; h <= h1; h++) batch.push(h);
+    const fetched = await fetchHeights(batch);
     fetched.sort((a, b) => a.h - b.h);
     for (const { h, txHexes } of fetched) {
       const scan = JSON.parse(
@@ -284,10 +318,7 @@ export async function syncWalletLite(opts: {
       onProgress?.(done, total, h);
     }
 
-    if (
-      done % SCAN_SAVE_EVERY === 0 ||
-      offset + SCAN_FETCH_CONCURRENCY >= heights.length
-    ) {
+    if (done % SCAN_SAVE_EVERY === 0 || h1 >= toHeight) {
       saveSync(seedHex, state);
     }
   }
