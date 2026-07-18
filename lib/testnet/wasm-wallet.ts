@@ -109,6 +109,24 @@ export function saveSync(seedHex: string, state: WalletSyncState) {
 }
 
 /**
+ * A persisted scan cursor taller than the live chain tip can only happen
+ * after the operator wiped and restarted the devnet (its whole history,
+ * including this wallet's cached UTXOs, no longer exists). Without this,
+ * every later call sees `lastScannedHeight > tipHeight`, decides there is
+ * nothing new to scan, and reports the stale pre-reset balance forever.
+ */
+function dropIfChainReset(
+  seedHex: string,
+  state: WalletSyncState,
+  tipHeight: number,
+): WalletSyncState {
+  if (state.lastScannedHeight <= tipHeight) return state;
+  const fresh = emptySync();
+  saveSync(seedHex, fresh);
+  return fresh;
+}
+
+/**
  * Brand-new wallets have never received funds. Mark them synced through tip
  * so "Refresh balance" only scans blocks after generation (not 1..tip).
  */
@@ -116,12 +134,20 @@ export function markSyncedThrough(
   seedHex: string,
   tipHeight: number,
 ): WalletSyncState {
-  const state = loadSync(seedHex);
+  const state = dropIfChainReset(seedHex, loadSync(seedHex), tipHeight);
   if (tipHeight > state.lastScannedHeight) {
     state.lastScannedHeight = tipHeight;
     saveSync(seedHex, state);
   }
   return state;
+}
+
+/** Load sync state, discarding it first if it predates a devnet chain reset. */
+export function loadSyncReconciled(
+  seedHex: string,
+  tipHeight: number,
+): WalletSyncState {
+  return dropIfChainReset(seedHex, loadSync(seedHex), tipHeight);
 }
 
 export function totalBalance(state: WalletSyncState): number {
