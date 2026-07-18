@@ -31,6 +31,38 @@ const RING = 16;
 /** After faucet, poll tip and auto-scan for this long. */
 const FAUCET_FOLLOW_MS = 90_000;
 const FAUCET_POLL_MS = 4_000;
+/** Keep ≥2 self-owned UTXOs after spend (F7 input floor). */
+function pushSelfChange(
+  recipients: Array<{
+    view_pub_hex: string;
+    spend_pub_hex: string;
+    value: number;
+  }>,
+  session: SessionWallet,
+  change: number,
+) {
+  if (change <= 0) return;
+  if (change === 1) {
+    recipients.push({
+      view_pub_hex: session.viewPubHex,
+      spend_pub_hex: session.spendPubHex,
+      value: 1,
+    });
+    return;
+  }
+  const a = Math.floor(change / 2);
+  const b = change - a;
+  recipients.push({
+    view_pub_hex: session.viewPubHex,
+    spend_pub_hex: session.spendPubHex,
+    value: a,
+  });
+  recipients.push({
+    view_pub_hex: session.viewPubHex,
+    spend_pub_hex: session.spendPubHex,
+    value: b,
+  });
+}
 
 /** mfn-cli `wallet upload` parity (see mfn-cli/src/wallet_cmd.rs). */
 const MAX_UPLOAD_BYTES = 32 * 1024 * 1024;
@@ -367,12 +399,30 @@ export default function WalletGenerator({ rpcProxyUrl }: Props) {
         throw new Error("amount must be a positive number");
       }
       const dest = decodeWalletAddress(sendTo.trim());
+      await loadMfnWasm();
       const tip = await rpc<{ tip_height?: number }>("get_tip", {});
       const tipH = Number(tip.tip_height ?? 0);
-      const state = loadSyncReconciled(session.seedHex, tipH);
+      let state = loadSyncReconciled(session.seedHex, tipH);
+      // Stale cache after a prior send often shows 1 change UTXO until scanned.
+      if (state.inputs.length < 2 && tipH >= 1) {
+        setStatus("Scanning for spendable UTXOs…");
+        let from = Math.max(1, state.lastScannedHeight + 1);
+        if (state.lastScannedHeight === 0) from = Math.max(1, tipH - 64);
+        if (from <= tipH) {
+          await syncWalletLite({
+            seedHex: session.seedHex,
+            fromHeight: from,
+            toHeight: tipH,
+            state,
+            rpc,
+          });
+        }
+        state = loadSyncReconciled(session.seedHex, tipH);
+        setSync({ ...state });
+      }
       if (state.inputs.length < 2) {
         throw new Error(
-          "Need at least 2 UTXOs to send (F7 floor). Claim the faucet (2 sends), wait for blocks, then refresh.",
+          "Need at least 2 UTXOs to send (F7 privacy floor). A prior send leaves one change unless it was split — claim the faucet again (2 outputs), wait for the next block, then refresh.",
         );
       }
       const needed = amount + FEE;
@@ -410,13 +460,8 @@ export default function WalletGenerator({ rpcProxyUrl }: Props) {
           value: amount,
         },
       ];
-      if (change > 0) {
-        recipients.push({
-          view_pub_hex: session.viewPubHex,
-          spend_pub_hex: session.spendPubHex,
-          value: change,
-        });
-      }
+      // Split change into two self-outputs so the next send still meets F7.
+      pushSelfChange(recipients, session, change);
 
       const plan = {
         inputs: pick,
@@ -462,15 +507,16 @@ export default function WalletGenerator({ rpcProxyUrl }: Props) {
       });
       setHistory(loadHistory(session.seedHex));
       setStatus(
-        `Sent ${amount.toLocaleString()} · tx ${truncateId(built.tx_id)} · refresh after the next block for change.`,
+        `Sent ${amount.toLocaleString()} · tx ${truncateId(built.tx_id)} · watching for split change (2 UTXOs)…`,
       );
       setSendAmount("100000");
+      startFaucetFollow();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(null);
     }
-  }, [session, sendAmount, sendTo, rpc]);
+  }, [session, sendAmount, sendTo, rpc, startFaucetFollow]);
 
   const onUpload = useCallback(async () => {
     if (!session || !uploadFile) return;
