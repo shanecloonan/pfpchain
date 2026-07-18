@@ -5,35 +5,19 @@ export default function HomePage() {
   return (
     <div className="space-y-20 pt-10 sm:space-y-28 sm:pt-14">
       {/* Hero */}
-      <section className="space-y-8">
-        <div className="space-y-5">
-          <p className="pw-fade text-[11px] font-semibold uppercase tracking-[0.28em] text-[var(--pw-accent)]">
-            Essential reference
-          </p>
-          <h1 className="pw-fade-delay font-[family-name:var(--font-pw-display)] text-[clamp(2rem,7vw,3.5rem)] font-semibold leading-[1.06] tracking-tight text-[var(--pw-ink)]">
-            PFP Chain
-          </h1>
-          <p className="pw-fade-delay-2 max-w-2xl text-base leading-relaxed text-[var(--pw-muted)] sm:text-lg">
-            Experimental pre-audit chain: Monero-grade privacy and
-            Arweave-style permanence in one ledger.
-          </p>
-        </div>
+      <section className="space-y-6">
+        <h1 className="pw-fade font-[family-name:var(--font-pw-display)] text-[clamp(2rem,7vw,3.5rem)] font-semibold leading-[1.06] tracking-tight text-[var(--pw-ink)]">
+          PFP Chain
+        </h1>
 
-        <div className="pw-fade-delay-2 flex flex-wrap gap-2">
-          {[
-            "Token: PFP",
-            "8 decimals",
-            "1 PFP = 100,000,000 base units",
-            "Slot time ≈ 12s",
-          ].map((tag) => (
-            <span
-              key={tag}
-              className="rounded-full border border-[var(--pw-line)] bg-[var(--pw-surface)]/60 px-3 py-1 font-mono text-[11px] text-[var(--pw-muted)]"
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
+        <SubBlock title="Token & network">
+          <BulletList
+            items={[
+              "Token: PFP · 8 decimals · 1 PFP = 100,000,000 base units",
+              "Slot time ≈ 12s",
+            ]}
+          />
+        </SubBlock>
       </section>
 
       {/* 1. Privacy */}
