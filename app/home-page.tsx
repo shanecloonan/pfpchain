@@ -32,13 +32,6 @@ export default function HomePage() {
         </span>
       </a>
 
-      {/* Hero */}
-      <section>
-        <h1 className="pw-fade font-[family-name:var(--font-pw-display)] text-[clamp(2rem,7vw,3.5rem)] font-semibold leading-[1.06] tracking-tight text-[var(--pw-ink)]">
-          PFP Chain
-        </h1>
-      </section>
-
       {/* 1. Privacy */}
       <Section
         id="privacy"
