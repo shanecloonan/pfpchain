@@ -7,38 +7,38 @@ export default function HomePage() {
 
   return (
     <div className="space-y-20 pt-10 sm:space-y-28 sm:pt-14">
-      <a
-        href={upstreamRepo}
-        target="_blank"
-        rel="noreferrer"
-        className="group flex w-full items-center justify-between gap-4 rounded-xl border border-[var(--pw-accent)]/50 bg-[var(--pw-accent-soft)] px-5 py-4 text-left transition-colors hover:border-[var(--pw-accent)] hover:bg-[var(--pw-accent)]/20 sm:px-6 sm:py-5"
-      >
-        <span className="min-w-0">
-          <span className="block text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--pw-accent)]">
-            Upstream source
-          </span>
-          <span className="mt-1 block font-[family-name:var(--font-pw-display)] text-lg font-semibold text-[var(--pw-ink)] sm:text-xl">
-            permawrite on GitHub
-          </span>
-          <span className="mt-1 block truncate font-mono text-[12px] text-[var(--pw-muted)]">
-            {upstreamRepo.replace("https://", "")}
-          </span>
-        </span>
-        <span
-          aria-hidden
-          className="shrink-0 text-2xl text-[var(--pw-accent)] transition-transform group-hover:translate-x-0.5"
+      <div className="space-y-3 sm:space-y-4">
+        <a
+          href={upstreamRepo}
+          target="_blank"
+          rel="noreferrer"
+          className="group flex w-full items-center justify-between gap-4 rounded-xl border border-[var(--pw-accent)]/50 bg-[var(--pw-accent-soft)] px-5 py-4 text-left transition-colors hover:border-[var(--pw-accent)] hover:bg-[var(--pw-accent)]/20 sm:px-6 sm:py-5"
         >
-          ↗
-        </span>
-      </a>
+          <span className="min-w-0">
+            <span className="block text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--pw-accent)]">
+              Upstream source
+            </span>
+            <span className="mt-1 block font-[family-name:var(--font-pw-display)] text-lg font-semibold text-[var(--pw-ink)] sm:text-xl">
+              permawrite on GitHub
+            </span>
+            <span className="mt-1 block truncate font-mono text-[12px] text-[var(--pw-muted)]">
+              {upstreamRepo.replace("https://", "")}
+            </span>
+          </span>
+          <span
+            aria-hidden
+            className="shrink-0 text-2xl text-[var(--pw-accent)] transition-transform group-hover:translate-x-0.5"
+          >
+            ↗
+          </span>
+        </a>
 
-      <blockquote className="rounded-2xl border border-[var(--pw-accent)]/30 bg-[var(--pw-accent-soft)] px-6 py-5 sm:px-8 sm:py-6">
         <p className="font-[family-name:var(--font-pw-display)] text-lg leading-relaxed text-[var(--pw-ink)] sm:text-xl">
           Privacy-tx fees fund a self-balancing storage treasury; users prepay
           an endowment sized for perpetual bytes; operators prove random chunk
           possession every block or lose pay (and eventually bond).
         </p>
-      </blockquote>
+      </div>
 
       {/* 1. Privacy */}
       <Section
