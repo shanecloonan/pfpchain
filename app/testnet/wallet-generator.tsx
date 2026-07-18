@@ -31,6 +31,24 @@ const RING = 16;
 const FAUCET_FOLLOW_MS = 90_000;
 const FAUCET_POLL_MS = 4_000;
 
+/** mfn-cli `wallet upload` parity (see mfn-cli/src/wallet_cmd.rs). */
+const MAX_UPLOAD_BYTES = 32 * 1024 * 1024;
+const UPLOAD_ANCHOR_VALUE = 1_000;
+const UPLOAD_FEE_TIP = 1_000;
+const DEFAULT_REPLICATION = 3;
+
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  const units = ["KB", "MB", "GB"];
+  let v = n / 1024;
+  let i = 0;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i++;
+  }
+  return `${v.toFixed(v >= 10 ? 0 : 1)} ${units[i]}`;
+}
+
 type Props = {
   rpcProxyUrl?: string | null;
 };
@@ -48,6 +66,11 @@ export default function WalletGenerator({ rpcProxyUrl }: Props) {
   const [sendTo, setSendTo] = useState("");
   const [sendAmount, setSendAmount] = useState("100000");
   const [scanProgress, setScanProgress] = useState<string | null>(null);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadReplication, setUploadReplication] = useState(
+    String(DEFAULT_REPLICATION),
+  );
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const faucetFollowRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sessionRef = useRef<SessionWallet | null>(null);
   const scanningRef = useRef(false);
@@ -446,6 +469,150 @@ export default function WalletGenerator({ rpcProxyUrl }: Props) {
     }
   }, [session, sendAmount, sendTo, rpc]);
 
+  const onUpload = useCallback(async () => {
+    if (!session || !uploadFile) return;
+    setBusy("upload");
+    setError(null);
+    setStatus(null);
+    try {
+      if (uploadFile.size === 0) {
+        throw new Error("file is empty");
+      }
+      if (uploadFile.size > MAX_UPLOAD_BYTES) {
+        throw new Error(
+          `file exceeds maximum size (${formatBytes(uploadFile.size)} > ${formatBytes(MAX_UPLOAD_BYTES)})`,
+        );
+      }
+      const replication = Number(uploadReplication);
+      if (!Number.isInteger(replication) || replication < 1) {
+        throw new Error("replication must be a positive integer");
+      }
+
+      const state = loadSync(session.seedHex);
+      if (state.inputs.length < 2) {
+        throw new Error(
+          "Need at least 2 UTXOs to upload (F7 floor). Claim the faucet (2 sends), wait for blocks, then refresh.",
+        );
+      }
+
+      const data = new Uint8Array(await uploadFile.arrayBuffer());
+      const [wasm, chainParams, tip] = await Promise.all([
+        loadMfnWasm(),
+        rpc<{
+          endowment?: Record<string, number>;
+          emission?: { fee_to_treasury_bps?: number };
+        }>("get_chain_params", {}),
+        rpc<{ tip_height?: number }>("get_tip", {}),
+      ]);
+      const tipH = Number(tip.tip_height ?? 0);
+      const feeToTreasuryBps = chainParams.emission?.fee_to_treasury_bps ?? 9000;
+      const endowment = chainParams.endowment || {};
+
+      const minFee = Number(
+        JSON.parse(wasm.uploadMinFee(data.length, replication, feeToTreasuryBps)),
+      );
+      const fee = minFee + UPLOAD_FEE_TIP;
+      const needed = UPLOAD_ANCHOR_VALUE + fee;
+
+      const sorted = [...state.inputs].sort((a, b) => b.value - a.value);
+      let pick = sorted.slice(0, 2);
+      let sum = pick.reduce((s, o) => s + o.value, 0);
+      if (sum < needed) {
+        pick = [];
+        sum = 0;
+        for (const o of sorted) {
+          pick.push(o);
+          sum += o.value;
+          if (sum >= needed && pick.length >= 2) break;
+        }
+      }
+      if (pick.length < 2 || sum < needed) {
+        throw new Error(
+          `Insufficient balance (have ${sum}, need ${needed} incl. fee ${fee}).`,
+        );
+      }
+
+      const utxoPage = await rpc<{
+        utxos?: Array<{
+          height: number;
+          one_time_addr_hex: string;
+          commit_hex: string;
+        }>;
+      }>("list_utxos", { limit: 10000, offset: 0 });
+
+      const plan = {
+        inputs: pick,
+        anchor: {
+          view_pub_hex: session.viewPubHex,
+          spend_pub_hex: session.spendPubHex,
+          value: UPLOAD_ANCHOR_VALUE,
+        },
+        replication,
+        fee,
+        ring_size: RING,
+        current_height: tipH,
+        decoy_utxos: (utxoPage.utxos || []).map((u) => ({
+          height: u.height,
+          one_time_addr_hex: u.one_time_addr_hex,
+          commit_hex: u.commit_hex,
+        })),
+        exclude_one_time_addrs_hex: pick.map((i) => i.one_time_addr_hex),
+        fee_to_treasury_bps: feeToTreasuryBps,
+        endowment: {
+          cost_per_byte_year_ppb: endowment.cost_per_byte_year_ppb,
+          min_replication: endowment.min_replication,
+          max_replication: endowment.max_replication,
+          require_endowment_opening: endowment.require_endowment_opening,
+          require_endowment_range_proof: endowment.require_endowment_range_proof,
+          operator_salted_challenges: endowment.operator_salted_challenges,
+          require_registered_operators: endowment.require_registered_operators,
+        },
+      };
+
+      const built = JSON.parse(
+        wasm.buildStorageUpload(session.seedHex, data, JSON.stringify(plan)),
+      ) as {
+        tx_hex: string;
+        tx_id: string;
+        data_root: string;
+        commitment_hash: string;
+        burden: string;
+        min_fee: number;
+      };
+
+      const submit = await rpc<{ outcome?: string; tx_id?: string }>(
+        "submit_tx",
+        { tx_hex: built.tx_hex },
+      );
+
+      const spent = new Set(pick.map((p) => p.key_image_hex.toLowerCase()));
+      state.inputs = state.inputs.filter(
+        (o) => !spent.has(o.key_image_hex.toLowerCase()),
+      );
+      saveSync(session.seedHex, state);
+      setSync({ ...state });
+
+      pushHistory(session.seedHex, {
+        id: `upload:${built.tx_id}`,
+        kind: "upload",
+        amount: fee,
+        txId: built.tx_id || submit.tx_id,
+        at: Date.now(),
+        note: `${uploadFile.name} · ${formatBytes(uploadFile.size)} · repl ${replication} · root ${truncateId(built.data_root)}`,
+      });
+      setHistory(loadHistory(session.seedHex));
+      setStatus(
+        `Uploaded "${uploadFile.name}" (${formatBytes(uploadFile.size)}) · tx ${truncateId(built.tx_id)} · data root ${truncateId(built.data_root)}. Refresh after the next block for change.`,
+      );
+      setUploadFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(null);
+    }
+  }, [session, uploadFile, uploadReplication, rpc]);
+
   const downloadJson = useCallback(() => {
     if (!session) return;
     const json = JSON.stringify(
@@ -626,6 +793,52 @@ export default function WalletGenerator({ rpcProxyUrl }: Props) {
         </div>
       </div>
 
+      <div className="space-y-2 border-t border-[var(--pw-line)] pt-3">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--pw-faint)]">
+          Upload to chain
+        </p>
+        <p className="text-[11px] leading-relaxed text-[var(--pw-faint)]">
+          Permanently anchor a file&apos;s bytes on-chain via SPoRA replication.
+          Max {formatBytes(MAX_UPLOAD_BYTES)}.
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="inline-flex h-9 shrink-0 cursor-pointer items-center rounded-md border border-[var(--pw-line)] bg-[var(--pw-surface)] px-3 text-xs font-semibold text-[var(--pw-ink)] hover:opacity-90">
+            Choose file
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
+            />
+          </label>
+          <span
+            className="min-w-0 flex-1 truncate font-mono text-[11px] text-[var(--pw-faint)]"
+            title={uploadFile?.name}
+          >
+            {uploadFile
+              ? `${uploadFile.name} · ${formatBytes(uploadFile.size)}`
+              : "No file selected"}
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <input
+            value={uploadReplication}
+            onChange={(e) => setUploadReplication(e.target.value)}
+            placeholder="Replication"
+            title="Replication factor"
+            className="w-32 rounded-lg border border-[var(--pw-line)] bg-[var(--pw-code)] px-3 py-2 font-mono text-[11px] text-[var(--pw-code-ink)] outline-none focus:border-[var(--pw-accent)]/50"
+          />
+          <button
+            type="button"
+            disabled={busy != null || !uploadFile}
+            onClick={() => void onUpload()}
+            className="inline-flex h-9 items-center rounded-md border border-[var(--pw-accent)]/40 bg-[var(--pw-accent-soft)] px-3 text-xs font-semibold text-[var(--pw-accent)] disabled:opacity-50"
+          >
+            {busy === "upload" ? "Uploading…" : "Upload"}
+          </button>
+        </div>
+      </div>
+
       {(status || error) && (
         <p
           className={`text-xs leading-relaxed ${
@@ -661,12 +874,12 @@ export default function WalletGenerator({ rpcProxyUrl }: Props) {
                 </div>
                 <span
                   className={`shrink-0 font-mono tabular-nums ${
-                    h.kind === "sent"
+                    h.kind === "sent" || h.kind === "upload"
                       ? "text-[var(--pw-faint)]"
                       : "text-[var(--pw-accent)]"
                   }`}
                 >
-                  {h.kind === "sent" ? "−" : "+"}
+                  {h.kind === "sent" || h.kind === "upload" ? "−" : "+"}
                   {h.amount.toLocaleString()}
                 </span>
               </li>

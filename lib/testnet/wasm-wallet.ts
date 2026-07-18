@@ -29,6 +29,18 @@ type WasmApi = {
     ownedKeyImages: string[],
   ) => string;
   buildTransferJson: (planJson: string) => string;
+  /** Smallest fee that clears the mempool's storage-upload underfunded gate (JSON number). */
+  uploadMinFee: (
+    dataLen: number,
+    replication: number,
+    feeToTreasuryBps: number,
+  ) => string;
+  /** Build + sign a storage-anchored upload tx; returns JSON tx_hex/tx_id/data_root/... */
+  buildStorageUpload: (
+    seedHex: string,
+    data: Uint8Array,
+    planJson: string,
+  ) => string;
 };
 
 let wasmPromise: Promise<WasmApi> | null = null;
@@ -64,7 +76,7 @@ const SCAN_SAVE_EVERY = 32;
 
 export type HistoryEntry = {
   id: string;
-  kind: "received" | "sent" | "faucet";
+  kind: "received" | "sent" | "faucet" | "upload";
   amount: number;
   height?: number;
   txId?: string;
