@@ -29,31 +29,6 @@ export default function DocsPage() {
             only.
           </p>
         </div>
-
-        <a
-          href={config.upstream_repo}
-          target="_blank"
-          rel="noreferrer"
-          className="group flex w-full items-center justify-between gap-4 rounded-xl border border-[var(--pw-accent)]/50 bg-[var(--pw-accent-soft)] px-5 py-4 text-left transition-colors hover:border-[var(--pw-accent)] hover:bg-[var(--pw-accent)]/20 sm:px-6 sm:py-5"
-        >
-          <span className="min-w-0">
-            <span className="block text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--pw-accent)]">
-              Upstream source
-            </span>
-            <span className="mt-1 block font-[family-name:var(--font-pw-display)] text-lg font-semibold text-[var(--pw-ink)] sm:text-xl">
-              permawrite on GitHub
-            </span>
-            <span className="mt-1 block truncate font-mono text-[12px] text-[var(--pw-muted)]">
-              {config.upstream_repo.replace("https://", "")}
-            </span>
-          </span>
-          <span
-            aria-hidden
-            className="shrink-0 text-2xl text-[var(--pw-accent)] transition-transform group-hover:translate-x-0.5"
-          >
-            ↗
-          </span>
-        </a>
       </div>
 
       <section className="space-y-10">
