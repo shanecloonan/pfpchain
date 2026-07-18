@@ -5,19 +5,10 @@ export default function HomePage() {
   return (
     <div className="space-y-20 pt-10 sm:space-y-28 sm:pt-14">
       {/* Hero */}
-      <section className="space-y-6">
+      <section>
         <h1 className="pw-fade font-[family-name:var(--font-pw-display)] text-[clamp(2rem,7vw,3.5rem)] font-semibold leading-[1.06] tracking-tight text-[var(--pw-ink)]">
           PFP Chain
         </h1>
-
-        <SubBlock title="Token & network">
-          <BulletList
-            items={[
-              "Token: PFP · 8 decimals · 1 PFP = 100,000,000 base units",
-              "Slot time ≈ 12s",
-            ]}
-          />
-        </SubBlock>
       </section>
 
       {/* 1. Privacy */}
