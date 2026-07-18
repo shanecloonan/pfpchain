@@ -15,10 +15,6 @@ export default function WalletPage() {
         <h1 className="font-[family-name:var(--font-pw-display)] text-[clamp(1.75rem,6vw,2.75rem)] font-semibold tracking-tight">
           Testnet wallet
         </h1>
-        <p className="text-sm text-[var(--pw-muted)] max-w-2xl">
-          Generate a keypair in your browser, fund it from the faucet, then scan
-          and send. Seed stays on this device.
-        </p>
       </div>
       <WalletGenerator rpcProxyUrl={config.rpc_proxy_url} />
     </div>
