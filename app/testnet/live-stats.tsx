@@ -301,6 +301,9 @@ export default function LiveStats({
                   : null;
               const repl =
                 typeof u.replication === "number" ? `×${u.replication}` : null;
+              const claimCount = u.claims?.length ?? 0;
+              const firstClaimMsg =
+                claimCount > 0 ? decodeClaimMessage(u.claims![0]) : null;
               return (
                 <li
                   key={`${id}-${i}`}
@@ -311,17 +314,80 @@ export default function LiveStats({
                       {u.last_proven_height != null
                         ? `proven h${u.last_proven_height}`
                         : "anchor"}
+                      {claimCount > 0 ? (
+                        <span className="ml-1.5 rounded bg-[var(--pw-accent-soft)] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-[var(--pw-accent)]">
+                          claimed
+                        </span>
+                      ) : null}
                     </span>
                     <span className="shrink-0 text-[10px] text-[var(--pw-faint)] sm:order-3 sm:text-[11px]">
                       {[size, repl].filter(Boolean).join(" · ") || "commitment"}
                     </span>
                   </div>
-                  <span
-                    className="min-w-0 break-all font-mono text-[11px] text-[var(--pw-ink)] sm:max-w-[55%] sm:truncate sm:text-[12px]"
-                    title={id}
-                  >
-                    {truncateId(id, 8, 6) || (u.summary as string) || "—"}
-                  </span>
+                  <div className="min-w-0 sm:max-w-[55%] sm:flex-1">
+                    <span
+                      className="block break-all font-mono text-[11px] text-[var(--pw-ink)] sm:truncate sm:text-[12px]"
+                      title={id}
+                    >
+                      {truncateId(id, 8, 6) || (u.summary as string) || "—"}
+                    </span>
+                    {firstClaimMsg ? (
+                      <p
+                        className="mt-0.5 truncate text-[10px] text-[var(--pw-muted)]"
+                        title={firstClaimMsg}
+                      >
+                        {firstClaimMsg}
+                      </p>
+                    ) : null}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
+      {live.claims.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--pw-muted)]">
+            Recent authorship claims
+          </h3>
+          <ul className="divide-y divide-[var(--pw-line)] overflow-hidden rounded-lg border border-[var(--pw-line)]">
+            {live.claims.map((c, i) => {
+              const msg = decodeClaimMessage(c);
+              const root = c.data_root ?? "";
+              return (
+                <li
+                  key={`${c.tx_id ?? i}-${c.claim_index ?? 0}`}
+                  className="flex flex-col gap-1.5 bg-[var(--pw-surface)]/40 px-3 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-3 sm:px-4 sm:py-2.5"
+                >
+                  <div className="min-w-0 flex-1 space-y-0.5">
+                    <p
+                      className="text-xs leading-relaxed text-[var(--pw-ink)] sm:text-sm"
+                      title={msg ?? undefined}
+                    >
+                      {msg || (
+                        <span className="text-[var(--pw-faint)]">(empty message)</span>
+                      )}
+                    </p>
+                    <p className="font-mono text-[10px] text-[var(--pw-faint)]">
+                      pubkey {truncateId(c.claim_pubkey, 6, 4)}
+                      {c.height != null ? ` · #${c.height}` : ""}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p
+                      className="break-all font-mono text-[10px] text-[var(--pw-muted)] sm:text-[11px]"
+                      title={root}
+                    >
+                      root {truncateId(root, 6, 4)}
+                    </p>
+                    {c.tx_id ? (
+                      <p className="font-mono text-[10px] text-[var(--pw-faint)]">
+                        tx {truncateId(c.tx_id, 6, 4)}
+                      </p>
+                    ) : null}
+                  </div>
                 </li>
               );
             })}
@@ -418,6 +484,21 @@ function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KiB`;
   return `${(n / (1024 * 1024)).toFixed(2)} MiB`;
+}
+
+function decodeClaimMessage(
+  claim?: { message_hex?: string } | null,
+): string | null {
+  const hex = claim?.message_hex?.trim();
+  if (!hex) return null;
+  try {
+    const bytes = new Uint8Array(
+      hex.match(/.{1,2}/g)?.map((h) => parseInt(h, 16)) ?? [],
+    );
+    return new TextDecoder().decode(bytes);
+  } catch {
+    return hex;
+  }
 }
 
 function formatPfp(baseUnits?: string, decimals?: number): string | null {

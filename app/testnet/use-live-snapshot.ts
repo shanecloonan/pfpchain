@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type {
+  AuthorshipClaim,
   BlockHeaderSummary,
   ChainParams,
   FraudContestSnapshot,
@@ -30,6 +31,7 @@ export type LiveSnapshotState = {
   tip: MfndTip | null;
   headers: BlockHeaderSummary[];
   uploads: RecentUpload[];
+  claims: AuthorshipClaim[];
   /** Running sum of per-block tx counts (backfills across polls). */
   txTotals: TxCountTotals | null;
   chainParams: ChainParams | null;
@@ -63,6 +65,7 @@ export function useLiveSnapshot(config: TestnetConfig): LiveSnapshotState {
     tip: null,
     headers: [],
     uploads: [],
+    claims: [],
     txTotals: null,
     chainParams: null,
     checkpoint: null,
@@ -122,6 +125,7 @@ export function useLiveSnapshot(config: TestnetConfig): LiveSnapshotState {
               snap.headers.length > 0 ? snap.headers : prev.headers,
             uploads:
               snap.uploads.length > 0 ? snap.uploads : prev.uploads,
+            claims: snap.claims.length > 0 ? snap.claims : prev.claims,
             txTotals: snap.txTotals ?? prev.txTotals,
             chainParams: snap.chainParams ?? prev.chainParams,
             checkpoint: snap.checkpoint ?? prev.checkpoint,

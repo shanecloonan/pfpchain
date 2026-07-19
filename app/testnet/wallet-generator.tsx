@@ -69,6 +69,14 @@ const MAX_UPLOAD_BYTES = 32 * 1024 * 1024;
 const UPLOAD_ANCHOR_VALUE = 1_000;
 const UPLOAD_FEE_TIP = 1_000;
 const DEFAULT_REPLICATION = 3;
+/** MFCL authorship claim message cap (see mfn-crypto authorship.rs). */
+const MAX_CLAIM_MESSAGE_LEN = 256;
+
+function utf8ToHex(s: string): string {
+  return Array.from(new TextEncoder().encode(s))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
 
 function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`;
@@ -103,6 +111,8 @@ export default function WalletGenerator({ rpcProxyUrl }: Props) {
   const [uploadReplication, setUploadReplication] = useState(
     String(DEFAULT_REPLICATION),
   );
+  const [uploadClaimMessage, setUploadClaimMessage] = useState("");
+  const [claimPubkey, setClaimPubkey] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const faucetFollowRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sessionRef = useRef<SessionWallet | null>(null);
@@ -116,6 +126,26 @@ export default function WalletGenerator({ rpcProxyUrl }: Props) {
     setSync(loadSync(s.seedHex));
     setHistory(loadHistory(s.seedHex));
   }, []);
+
+  useEffect(() => {
+    if (!session) {
+      setClaimPubkey(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const wasm = await loadMfnWasm();
+        const pk = wasm.claimPubkeyFromSeedHex(session.seedHex);
+        if (!cancelled) setClaimPubkey(pk);
+      } catch {
+        if (!cancelled) setClaimPubkey(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [session]);
 
   useEffect(() => {
     return () => {
@@ -536,6 +566,12 @@ export default function WalletGenerator({ rpcProxyUrl }: Props) {
       if (!Number.isInteger(replication) || replication < 1) {
         throw new Error("replication must be a positive integer");
       }
+      const claimMsg = uploadClaimMessage.trim();
+      if (claimMsg.length > MAX_CLAIM_MESSAGE_LEN) {
+        throw new Error(
+          `claim message exceeds ${MAX_CLAIM_MESSAGE_LEN} bytes (UTF-8)`,
+        );
+      }
 
       const data = new Uint8Array(await uploadFile.arrayBuffer());
       const [wasm, chainParams, tip] = await Promise.all([
@@ -616,6 +652,7 @@ export default function WalletGenerator({ rpcProxyUrl }: Props) {
           operator_salted_challenges: endowment.operator_salted_challenges,
           require_registered_operators: endowment.require_registered_operators,
         },
+        ...(claimMsg ? { message_hex: utf8ToHex(claimMsg) } : {}),
       };
 
       const built = JSON.parse(
@@ -647,20 +684,21 @@ export default function WalletGenerator({ rpcProxyUrl }: Props) {
         amount: fee,
         txId: built.tx_id || submit.tx_id,
         at: Date.now(),
-        note: `${uploadFile.name} · ${formatBytes(uploadFile.size)} · repl ${replication} · root ${truncateId(built.data_root)}`,
+        note: `${uploadFile.name} · ${formatBytes(uploadFile.size)} · repl ${replication}${claimMsg ? ` · claim "${claimMsg.slice(0, 48)}${claimMsg.length > 48 ? "…" : ""}"` : ""} · root ${truncateId(built.data_root)}`,
       });
       setHistory(loadHistory(session.seedHex));
       setStatus(
-        `Uploaded "${uploadFile.name}" (${formatBytes(uploadFile.size)}) · tx ${truncateId(built.tx_id)} · data root ${truncateId(built.data_root)}. Refresh after the next block for change.`,
+        `Uploaded "${uploadFile.name}" (${formatBytes(uploadFile.size)})${claimMsg ? " with authorship claim" : ""} · tx ${truncateId(built.tx_id)} · data root ${truncateId(built.data_root)}. Refresh after the next block for change.`,
       );
       setUploadFile(null);
+      setUploadClaimMessage("");
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(null);
     }
-  }, [session, uploadFile, uploadReplication, rpc]);
+  }, [session, uploadFile, uploadReplication, uploadClaimMessage, rpc]);
 
   const downloadJson = useCallback(() => {
     if (!session) return;
@@ -750,6 +788,16 @@ export default function WalletGenerator({ rpcProxyUrl }: Props) {
         copiedKey={copiedKey}
         onCopy={copy}
       />
+
+      {claimPubkey ? (
+        <Field
+          label="Claiming pubkey (MFCL)"
+          value={claimPubkey}
+          copyKey="wal-claim-pk"
+          copiedKey={copiedKey}
+          onCopy={copy}
+        />
+      ) : null}
 
       <div className="space-y-1.5">
         <div className="flex items-center justify-between gap-2">
@@ -848,7 +896,8 @@ export default function WalletGenerator({ rpcProxyUrl }: Props) {
         </p>
         <p className="text-[11px] leading-relaxed text-[var(--pw-faint)]">
           Permanently anchor a file&apos;s bytes on-chain via SPoRA replication.
-          Max {formatBytes(MAX_UPLOAD_BYTES)}.
+          Max {formatBytes(MAX_UPLOAD_BYTES)}. Optionally attach an MFCL
+          authorship claim (bound to data root + commitment at upload time).
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <label className="inline-flex h-9 shrink-0 cursor-pointer items-center rounded-md border border-[var(--pw-line)] bg-[var(--pw-surface)] px-3 text-xs font-semibold text-[var(--pw-ink)] hover:opacity-90">
@@ -886,6 +935,13 @@ export default function WalletGenerator({ rpcProxyUrl }: Props) {
             {busy === "upload" ? "Uploading…" : "Upload"}
           </button>
         </div>
+        <input
+          value={uploadClaimMessage}
+          onChange={(e) => setUploadClaimMessage(e.target.value)}
+          placeholder={`Optional authorship claim (max ${MAX_CLAIM_MESSAGE_LEN} UTF-8 bytes)`}
+          maxLength={MAX_CLAIM_MESSAGE_LEN}
+          className="w-full rounded-lg border border-[var(--pw-line)] bg-[var(--pw-code)] px-3 py-2 text-[11px] text-[var(--pw-code-ink)] outline-none focus:border-[var(--pw-accent)]/50"
+        />
       </div>
 
       {(status || error) && (

@@ -91,6 +91,21 @@ export type BlockHeaderSummary = {
   user_tx_count?: number;
 };
 
+/** MFCL authorship claim as returned by claim RPC methods. */
+export type AuthorshipClaim = {
+  height?: number;
+  tx_id?: string;
+  tx_index?: number;
+  claim_index?: number;
+  wire_version?: number;
+  data_root?: string;
+  commit_hash?: string;
+  claim_pubkey?: string;
+  message_hex?: string;
+  sig_hex?: string;
+  [key: string]: unknown;
+};
+
 export type RecentUpload = {
   height?: number;
   tx_id?: string;
@@ -103,6 +118,7 @@ export type RecentUpload = {
   num_chunks?: number;
   replication?: number;
   last_proven_height?: number;
+  claims?: AuthorshipClaim[];
   [key: string]: unknown;
 };
 

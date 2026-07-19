@@ -1,4 +1,5 @@
 import type {
+  AuthorshipClaim,
   BlockHeaderSummary,
   ChainParams,
   FraudContestSnapshot,
@@ -106,6 +107,7 @@ export type LiveSnapshot = {
   tip: MfndTip | null;
   headers: BlockHeaderSummary[];
   uploads: RecentUpload[];
+  claims: AuthorshipClaim[];
   txTotals: TxCountTotals | null;
   chainParams: ChainParams | null;
   checkpoint: LightCheckpointSummary | null;
@@ -150,6 +152,7 @@ export async function fetchLiveSnapshot(
 
   let headers: BlockHeaderSummary[] = [];
   let uploads: RecentUpload[] = [];
+  let claims: AuthorshipClaim[] = [];
   let txTotals: TxCountTotals | null = null;
   let storagePulse: StoragePulse | null = null;
   let mempoolPulse: MempoolPulse | null = null;
@@ -220,12 +223,21 @@ export async function fetchLiveSnapshot(
   }
 
   try {
-    const raw = await rpcCall<{
-      uploads?: RecentUpload[];
-      total?: number;
-    }>(proxyUrl, "list_recent_uploads", { limit: 12 }, signal);
-    uploads = normalizeUploads(raw);
-    storagePulse = summarizeStoragePulse(uploads, raw?.total);
+    const [uploadsRaw, claimsRaw] = await Promise.all([
+      rpcCall<{
+        uploads?: RecentUpload[];
+        total?: number;
+      }>(proxyUrl, "list_recent_uploads", { limit: 12, include_claims: true }, signal),
+      rpcCall<{
+        claims?: AuthorshipClaim[];
+        total?: number;
+      }>(proxyUrl, "list_recent_claims", { limit: 12 }, signal).catch(() => null),
+    ]);
+    uploads = normalizeUploads(uploadsRaw);
+    storagePulse = summarizeStoragePulse(uploads, uploadsRaw?.total);
+    if (claimsRaw) {
+      claims = normalizeClaims(claimsRaw);
+    }
   } catch {
     // optional — ignore
   }
@@ -243,6 +255,7 @@ export async function fetchLiveSnapshot(
     tip,
     headers,
     uploads,
+    claims,
     txTotals,
     chainParams,
     checkpoint,
@@ -531,6 +544,19 @@ function normalizeUploads(raw: unknown): RecentUpload[] {
       (obj.items as unknown[]) ||
       (obj.recent as unknown[]);
     if (Array.isArray(list)) return list as RecentUpload[];
+  }
+  return [];
+}
+
+function normalizeClaims(raw: unknown): AuthorshipClaim[] {
+  if (Array.isArray(raw)) return raw as AuthorshipClaim[];
+  if (raw && typeof raw === "object") {
+    const obj = raw as Record<string, unknown>;
+    const list =
+      (obj.claims as unknown[]) ||
+      (obj.items as unknown[]) ||
+      (obj.recent as unknown[]);
+    if (Array.isArray(list)) return list as AuthorshipClaim[];
   }
   return [];
 }

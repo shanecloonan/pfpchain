@@ -41,6 +41,8 @@ type WasmApi = {
     data: Uint8Array,
     planJson: string,
   ) => string;
+  /** MFCL claiming public key (64 hex chars) from wallet seed. */
+  claimPubkeyFromSeedHex: (seedHex: string) => string;
 };
 
 let wasmPromise: Promise<WasmApi> | null = null;
