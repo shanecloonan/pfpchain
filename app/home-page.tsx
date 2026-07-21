@@ -14,30 +14,80 @@ export default function HomePage() {
           possession every block or lose pay (and eventually bond).
         </p>
 
-        <a
-          href={upstreamRepo}
-          target="_blank"
-          rel="noreferrer"
-          className="group flex w-full items-center justify-between gap-4 rounded-xl border border-[var(--pw-accent)]/50 bg-[var(--pw-accent-soft)] px-5 py-4 text-left transition-colors hover:border-[var(--pw-accent)] hover:bg-[var(--pw-accent)]/20 sm:px-6 sm:py-5"
-        >
-          <span className="min-w-0">
-            <span className="block text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--pw-accent)]">
-              Upstream source
-            </span>
-            <span className="mt-1 block font-[family-name:var(--font-pw-display)] text-lg font-semibold text-[var(--pw-ink)] sm:text-xl">
-              View codebase
-            </span>
-            <span className="mt-1 block truncate font-mono text-[12px] text-[var(--pw-muted)]">
-              {upstreamRepo.replace("https://", "")}
-            </span>
-          </span>
-          <span
-            aria-hidden
-            className="shrink-0 text-2xl text-[var(--pw-accent)] transition-transform group-hover:translate-x-0.5"
-          >
-            ↗
-          </span>
-        </a>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {(
+            [
+              {
+                href: "/testnet/wallet",
+                eyebrow: "Testnet",
+                title: "Wallet",
+                detail: "Generate, fund, and send PFP",
+                external: false,
+              },
+              {
+                href: "/testnet/explore",
+                eyebrow: "Testnet",
+                title: "Explore",
+                detail: "Live blocks and chain stats",
+                external: false,
+              },
+              {
+                href: "/testnet/docs",
+                eyebrow: "Testnet",
+                title: "Docs",
+                detail: "Join, observe, and operate",
+                external: false,
+              },
+              {
+                href: upstreamRepo,
+                eyebrow: "Upstream source",
+                title: "GitHub",
+                detail: upstreamRepo.replace("https://", ""),
+                external: true,
+              },
+            ] as const
+          ).map(({ href, eyebrow, title, detail, external }) => {
+            const className =
+              "group flex h-full items-center justify-between gap-4 rounded-xl border border-[var(--pw-accent)]/50 bg-[var(--pw-accent-soft)] px-5 py-4 text-left transition-colors hover:border-[var(--pw-accent)] hover:bg-[var(--pw-accent)]/20 sm:px-6 sm:py-5";
+            const body = (
+              <>
+                <span className="min-w-0">
+                  <span className="block text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--pw-accent)]">
+                    {eyebrow}
+                  </span>
+                  <span className="mt-1 block font-[family-name:var(--font-pw-display)] text-lg font-semibold text-[var(--pw-ink)] sm:text-xl">
+                    {title}
+                  </span>
+                  <span className="mt-1 block truncate font-mono text-[12px] text-[var(--pw-muted)]">
+                    {detail}
+                  </span>
+                </span>
+                <span
+                  aria-hidden
+                  className="shrink-0 text-2xl text-[var(--pw-accent)] transition-transform group-hover:translate-x-0.5"
+                >
+                  {external ? "↗" : "→"}
+                </span>
+              </>
+            );
+
+            return external ? (
+              <a
+                key={href}
+                href={href}
+                target="_blank"
+                rel="noreferrer"
+                className={className}
+              >
+                {body}
+              </a>
+            ) : (
+              <Link key={href} href={href} className={className}>
+                {body}
+              </Link>
+            );
+          })}
+        </div>
       </div>
 
       {/* 1. Privacy */}
