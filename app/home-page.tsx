@@ -6,7 +6,7 @@ export default function HomePage() {
   const upstreamRepo = FALLBACK_CONFIG.upstream_repo;
 
   return (
-    <div className="space-y-20 pt-10 sm:space-y-28 sm:pt-14">
+    <div className="space-y-20 sm:space-y-28">
       <div className="space-y-3 sm:space-y-4">
         <p className="font-[family-name:var(--font-pw-display)] text-lg leading-relaxed text-[var(--pw-ink)] sm:text-xl">
           Privacy-tx fees fund a self-balancing storage treasury; users prepay
@@ -396,10 +396,10 @@ export default function HomePage() {
             PFP Chain · Privacy-Funded Permanence
           </p>
           <Link
-            href="/testnet/explore"
+            href="/"
             className="text-sm font-semibold text-[var(--pw-accent)] underline-offset-4 hover:underline"
           >
-            Open testnet →
+            Live network →
           </Link>
         </div>
       </section>

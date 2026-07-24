@@ -29,7 +29,7 @@ export default function TestnetShell({ children }: { children: ReactNode }) {
       <div
         className={`${display.variable} ${sans.variable} ${mono.variable} pw-theme relative min-h-screen`}
       >
-        <div className="relative z-10 mx-auto w-full max-w-4xl px-4 pb-20 sm:px-8 sm:pb-24">
+        <div className="relative z-10 mx-auto w-full max-w-5xl px-4 pb-20 sm:px-8 sm:pb-24">
           <SiteHeader />
           {children}
         </div>

@@ -6,7 +6,6 @@ import { useCallback, useEffect, useId, useState } from "react";
 
 const NAV_ITEMS = [
   { href: "/", label: "Home" },
-  { href: "/testnet/explore", label: "Explore" },
   { href: "/testnet/wallet", label: "Wallet" },
   { href: "/testnet/docs", label: "Docs" },
 ] as const;

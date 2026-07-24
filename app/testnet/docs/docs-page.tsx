@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { type ReactNode } from "react";
+import HomePage from "@/app/home-page";
 import { observerCommands, walletCommands } from "@/lib/testnet/commands";
 import { CodeBlock, useCopyFeedback } from "../ui";
 import { useTestnet } from "../testnet-provider";
@@ -17,21 +18,32 @@ export default function DocsPage() {
       <div className="space-y-6">
         <div className="space-y-1.5">
           <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[var(--pw-accent)]">
-            Join the mesh
+            Protocol & join path
           </p>
           <h1 className="font-[family-name:var(--font-pw-display)] text-[clamp(1.75rem,6vw,2.75rem)] font-semibold tracking-tight">
             Documentation
           </h1>
           <p className="text-sm text-[var(--pw-muted)] max-w-2xl">
-            Static join path — works with zero backend.{" "}
-            <code className="text-[12px]">mfnd</code> JSON-RPC is
+            Essential protocol reference, then the static join path — works with
+            zero backend. <code className="text-[12px]">mfnd</code> JSON-RPC is
             newline-delimited TCP; browsers need an HTTP proxy for live stats
             only.
           </p>
         </div>
       </div>
 
-      <section className="space-y-10">
+      <HomePage />
+
+      <section className="space-y-10 border-t border-[var(--pw-line)] pt-12">
+        <div className="space-y-1.5">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[var(--pw-accent)]">
+            Join the mesh
+          </p>
+          <h2 className="font-[family-name:var(--font-pw-display)] text-2xl sm:text-3xl tracking-tight">
+            Testnet roles
+          </h2>
+        </div>
+
         <Role title="Role 1 — Observer" subtitle="Minimum join">
           <p className="text-sm text-[var(--pw-muted)] mb-3">
             Build and sync an observer. Seed nodes auto-dial from the manifest

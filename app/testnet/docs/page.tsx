@@ -4,7 +4,7 @@ import DocsPage from "./docs-page";
 export const metadata: Metadata = {
   title: "Docs",
   description:
-    "Join the PFP Chain public testnet — observer, wallet, and operator instructions.",
+    "PFP Chain protocol reference plus public testnet join steps for observers, wallets, and operators.",
 };
 
 export default function Page() {

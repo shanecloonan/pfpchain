@@ -1,17 +1,17 @@
 import type { Metadata } from "next";
-import HomePage from "./home-page";
-import HomeShell from "./home-shell";
+import ExplorePage from "./testnet/explore/explore-page";
+import TestnetShell from "./testnet/testnet-shell";
 
 export const metadata: Metadata = {
   title: "PFP Chain — Privacy-Funded Permanence",
   description:
-    "Experimental pre-audit chain: Monero-grade privacy and Arweave-style permanence in one ledger. Token PFP, essential protocol reference.",
+    "Live tip, recent blocks, and mesh pulse from the PFP Chain public testnet.",
 };
 
 export default function Home() {
   return (
-    <HomeShell>
-      <HomePage />
-    </HomeShell>
+    <TestnetShell>
+      <ExplorePage />
+    </TestnetShell>
   );
 }
