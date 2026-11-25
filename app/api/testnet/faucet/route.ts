@@ -33,6 +33,58 @@ function healthUrl(): string {
   return `${baseUrl()}/health`;
 }
 
+function looksInternal(text: string): boolean {
+  return /\/(?:root|home|opt|usr|var|tmp)\b|mfn-cli|exited \d|target\/release/i.test(
+    text,
+  );
+}
+
+/** Browser-facing copy. Raw upstream text is logged, never returned. */
+function friendlyFaucetError(raw: string): string {
+  if (/owned UTXO count|privacy floor/i.test(raw)) {
+    return "The faucet is short a second spendable coin and is refilling. Try again in a minute.";
+  }
+  if (/timeout/i.test(raw)) {
+    return "The faucet took too long. Try again in a minute.";
+  }
+  if (/cooldown/i.test(raw)) return raw;
+  if (/busy/i.test(raw)) return "The faucet is busy. Try again in a minute.";
+  if (looksInternal(raw)) {
+    return "The faucet could not complete the transfer. Try again in a minute.";
+  }
+  return raw;
+}
+
+function sanitizeFaucetBody(text: string): string {
+  try {
+    const data = JSON.parse(text) as Record<string, unknown>;
+    let changed = false;
+    if (typeof data.error === "string") {
+      const next = friendlyFaucetError(data.error);
+      if (next !== data.error) {
+        console.error("faucet upstream error:", data.error);
+        data.error = next;
+        changed = true;
+      }
+    }
+    if (typeof data.hint === "string" && looksInternal(data.hint)) {
+      console.error("faucet upstream hint:", data.hint);
+      delete data.hint;
+      changed = true;
+    }
+    return changed ? JSON.stringify(data) : text;
+  } catch {
+    if (looksInternal(text)) {
+      console.error("faucet upstream body:", text.slice(0, 500));
+      return JSON.stringify({
+        ok: false,
+        error: "The faucet could not complete the transfer. Try again in a minute.",
+      });
+    }
+    return text;
+  }
+}
+
 export async function GET(req: NextRequest) {
   const jobId = req.nextUrl.searchParams.get("job");
   const upstream = jobId ? jobUrl(jobId) : healthUrl();
@@ -41,7 +93,7 @@ export async function GET(req: NextRequest) {
       cache: "no-store",
       signal: AbortSignal.timeout(12_000),
     });
-    const text = await res.text();
+    const text = sanitizeFaucetBody(await res.text());
     return new NextResponse(text, {
       status: res.status,
       headers: {
@@ -51,11 +103,11 @@ export async function GET(req: NextRequest) {
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
+    console.error("faucet upstream unreachable:", msg);
     return NextResponse.json(
       {
         ok: false,
-        error: `faucet upstream unreachable: ${msg}`,
-        hint: "VPS port 8788 is down (faucet-http not running). Restart on the server: bash /root/permawrite/scripts/public-devnet-v1/vps-update-faucet.sh",
+        error: "The faucet is unreachable. Try again in a minute.",
       },
       { status: 502 },
     );
@@ -79,7 +131,7 @@ export async function POST(req: NextRequest) {
       cache: "no-store",
       signal: AbortSignal.timeout(20_000),
     });
-    const text = await res.text();
+    const text = sanitizeFaucetBody(await res.text());
     return new NextResponse(text, {
       status: res.status,
       headers: {
@@ -89,11 +141,11 @@ export async function POST(req: NextRequest) {
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
+    console.error("faucet upstream unreachable:", msg);
     return NextResponse.json(
       {
         ok: false,
-        error: `faucet upstream unreachable: ${msg}`,
-        hint: "VPS port 8788 is closed — faucet-http process is not listening. Restart on the server (Rescue SSH if needed): cd /root/permawrite && git pull && bash scripts/public-devnet-v1/vps-update-faucet.sh",
+        error: "The faucet is unreachable. Try again in a minute.",
       },
       { status: 502 },
     );

@@ -13,10 +13,8 @@ import type {
   StoragePulse,
 } from "./types";
 import {
-  aggregatePrivacySamples,
   parseTxPrivacyMeta,
   type PrivacySampleAggregate,
-  type TxPrivacyMeta,
 } from "./tx-meta";
 
 /**
@@ -78,14 +76,6 @@ export async function rpcCall<T>(
   return parsed.result;
 }
 
-type BlockTxCounts = { all: number; user: number };
-
-/** Cache tx counts by height — payloads are large; heights are immutable. */
-const txCountCache = new Map<number, BlockTxCounts>();
-/** Privacy-safe shape cache keyed by height. */
-const txMetaCache = new Map<number, TxPrivacyMeta[]>();
-/** Fallback client backfill if observer proxy index is unavailable. */
-const TX_COUNT_BACKFILL_BUDGET = 48;
 /** Max mempool txs to sample for ring-shape stats per poll. */
 const MEMPOOL_SAMPLE_BUDGET = 6;
 
@@ -121,34 +111,41 @@ export async function fetchLiveSnapshot(
   proxyUrl: string,
   signal?: AbortSignal,
 ): Promise<LiveSnapshot> {
-  const [status, tip, chainParams, checkpoint, fraudContests, mempoolRaw] =
-    await Promise.all([
-      rpcCall<MfndStatus>(proxyUrl, "get_status", {}, signal),
-      rpcCall<MfndTip>(proxyUrl, "get_tip", {}, signal).catch(() => null),
-      rpcCall<ChainParams>(proxyUrl, "get_chain_params", {}, signal).catch(
-        () => null,
-      ),
-      rpcCall<{ summary?: LightCheckpointSummary }>(
-        proxyUrl,
-        "get_light_snapshot",
-        {},
-        signal,
-      )
-        .then((r) => r?.summary ?? null)
-        .catch(() => null),
-      rpcCall<FraudContestSnapshot>(
-        proxyUrl,
-        "list_fraud_contests",
-        {},
-        signal,
-      ).catch(() => null),
-      rpcCall<{ mempool_len?: number; tx_ids?: string[] }>(
-        proxyUrl,
-        "get_mempool",
-        {},
-        signal,
-      ).catch(() => null),
-    ]);
+  // Fast methods only. get_light_snapshot re-reads a tall chain and used to
+  // hold this poll (and an mfnd connection) for the whole 45s proxy budget.
+  const [status, tip, chainParams, mempoolRaw] = await Promise.all([
+    rpcCall<MfndStatus>(proxyUrl, "get_status", {}, signal),
+    rpcCall<MfndTip>(proxyUrl, "get_tip", {}, signal).catch(() => null),
+    rpcCall<ChainParams>(proxyUrl, "get_chain_params", {}, signal).catch(
+      () => null,
+    ),
+    rpcCall<{ mempool_len?: number; tx_ids?: string[] }>(
+      proxyUrl,
+      "get_mempool",
+      {},
+      signal,
+    ).catch(() => null),
+  ]);
+  const optionalSignal = AbortSignal.any([
+    AbortSignal.timeout(8_000),
+    ...(signal ? [signal] : []),
+  ]);
+  const optionalExtras = Promise.all([
+    rpcCall<{ summary?: LightCheckpointSummary }>(
+      proxyUrl,
+      "get_light_snapshot",
+      {},
+      optionalSignal,
+    )
+      .then((r) => r?.summary ?? null)
+      .catch(() => null),
+    rpcCall<FraudContestSnapshot>(
+      proxyUrl,
+      "list_fraud_contests",
+      {},
+      optionalSignal,
+    ).catch(() => null),
+  ]);
 
   let headers: BlockHeaderSummary[] = [];
   let uploads: RecentUpload[] = [];
@@ -156,7 +153,7 @@ export async function fetchLiveSnapshot(
   let txTotals: TxCountTotals | null = null;
   let storagePulse: StoragePulse | null = null;
   let mempoolPulse: MempoolPulse | null = null;
-  let privacySample: PrivacySampleAggregate | null = null;
+  const privacySample: PrivacySampleAggregate | null = null;
 
   const tipHeight =
     status.chain?.tip_height ?? tip?.tip_height ?? tip?.height ?? null;
@@ -192,31 +189,9 @@ export async function fetchLiveSnapshot(
         signal,
       );
       headers = normalizeHeaders(raw);
-      await fetchMissingTxCounts(
-        proxyUrl,
-        headers.map((h) => h.height).filter((h): h is number => h != null),
-        signal,
-      );
-      headers = headers.map((h) => {
-        if (h.height == null) return h;
-        const c = txCountCache.get(h.height);
-        return c
-          ? { ...h, tx_count: c.all, user_tx_count: c.user }
-          : h;
-      });
-      if (!txTotals?.complete) {
-        await backfillTxCounts(proxyUrl, tipHeight, signal);
-        const local = summarizeTxCounts(tipHeight);
-        // Keep proxy totals if they're further ahead; else use local.
-        if (
-          !txTotals ||
-          local.coveredHeights > txTotals.coveredHeights ||
-          local.complete
-        ) {
-          txTotals = local;
-        }
-      }
-      privacySample = aggregatePrivacySamples(collectCachedPrivacyMetas());
+      // Do not fan out get_block_txs per height from the browser. At a tall
+      // tip that was dozens of upstream sockets per poll, and aborting the
+      // poll did not release them. The observer proxy indexes totals.
     } catch {
       // optional — ignore
     }
@@ -227,11 +202,11 @@ export async function fetchLiveSnapshot(
       rpcCall<{
         uploads?: RecentUpload[];
         total?: number;
-      }>(proxyUrl, "list_recent_uploads", { limit: 12, include_claims: true }, signal),
+      }>(proxyUrl, "list_recent_uploads", { limit: 12, include_claims: true }, optionalSignal),
       rpcCall<{
         claims?: AuthorshipClaim[];
         total?: number;
-      }>(proxyUrl, "list_recent_claims", { limit: 12 }, signal).catch(() => null),
+      }>(proxyUrl, "list_recent_claims", { limit: 12 }, optionalSignal).catch(() => null),
     ]);
     uploads = normalizeUploads(uploadsRaw);
     storagePulse = summarizeStoragePulse(uploads, uploadsRaw?.total);
@@ -242,12 +217,10 @@ export async function fetchLiveSnapshot(
     // optional — ignore
   }
 
+  const [checkpoint, fraudContests] = await optionalExtras;
+
   if (mempoolRaw) {
-    mempoolPulse = await summarizeMempoolPulse(proxyUrl, mempoolRaw, signal);
-    if (privacySample && mempoolPulse.pendingUserTxs != null) {
-      // Mempool samples merged into privacy aggregate on next block fetch;
-      // keep block-derived sample as primary source.
-    }
+    mempoolPulse = await summarizeMempoolPulse(proxyUrl, mempoolRaw, optionalSignal);
   }
 
   return {
@@ -264,50 +237,6 @@ export async function fetchLiveSnapshot(
     mempoolPulse,
     privacySample,
   };
-}
-
-async function fetchMissingTxCounts(
-  proxyUrl: string,
-  heights: number[],
-  signal?: AbortSignal,
-): Promise<void> {
-  const missing = [...new Set(heights)].filter(
-    (h) => h >= 1 && !txCountCache.has(h),
-  );
-  await Promise.all(
-    missing.map(async (height) => {
-      try {
-        const raw = await rpcCall<{ txs?: unknown[] }>(
-          proxyUrl,
-          "get_block_txs",
-          { height },
-          signal,
-        );
-        const txs = Array.isArray(raw?.txs) ? raw.txs : [];
-        const metas: TxPrivacyMeta[] = [];
-        for (const item of txs) {
-          if (!item || typeof item !== "object") continue;
-          const o = item as { tx_hex?: unknown };
-          if (typeof o.tx_hex !== "string") continue;
-          const meta = parseTxPrivacyMeta(o.tx_hex);
-          if (meta && !meta.isCoinbase) metas.push(meta);
-        }
-        txMetaCache.set(height, metas);
-        txCountCache.set(height, {
-          all: txs.length,
-          user: countUserTxs(txs),
-        });
-      } catch {
-        // leave uncached — retry next poll
-      }
-    }),
-  );
-}
-
-function collectCachedPrivacyMetas(): TxPrivacyMeta[] {
-  const out: TxPrivacyMeta[] = [];
-  for (const metas of txMetaCache.values()) out.push(...metas);
-  return out;
 }
 
 async function summarizeMempoolPulse(
@@ -364,101 +293,6 @@ function summarizeStoragePulse(
     totalBytesBucketed: uploads.length > 0 ? bytes : null,
     avgReplication: replN > 0 ? Math.round((replSum / replN) * 10) / 10 : null,
   };
-}
-
-/** Fill gaps from tip downward so new blocks stay current while history catches up. */
-async function backfillTxCounts(
-  proxyUrl: string,
-  tipHeight: number,
-  signal?: AbortSignal,
-): Promise<void> {
-  const missing: number[] = [];
-  for (let h = tipHeight; h >= 1 && missing.length < TX_COUNT_BACKFILL_BUDGET; h--) {
-    if (!txCountCache.has(h)) missing.push(h);
-  }
-  if (missing.length === 0) return;
-  await fetchMissingTxCounts(proxyUrl, missing, signal);
-}
-
-function summarizeTxCounts(tipHeight: number): TxCountTotals {
-  let total = 0;
-  let covered = 0;
-  for (let h = 1; h <= tipHeight; h++) {
-    const n = txCountCache.get(h);
-    if (n != null) {
-      total += n.user;
-      covered++;
-    }
-  }
-  return {
-    totalTxCount: covered > 0 ? total : null,
-    coveredHeights: covered,
-    tipHeight,
-    complete: covered === tipHeight,
-  };
-}
-
-/** Non-coinbase = tx with at least one ring input (coinbase is empty-input / index 0). */
-function countUserTxs(txs: unknown[]): number {
-  let user = 0;
-  for (const item of txs) {
-    if (!item || typeof item !== "object") continue;
-    const o = item as { tx_hex?: unknown; tx_index?: unknown };
-    if (typeof o.tx_hex === "string") {
-      if (!isCoinbaseTxHex(o.tx_hex)) user++;
-      continue;
-    }
-    // Fallback: only treat index 0 as coinbase when hex is unavailable.
-    if (typeof o.tx_index === "number" && o.tx_index !== 0) user++;
-  }
-  return user;
-}
-
-/**
- * MFBN tx wire: version varint · 32-byte r_pub · u64 fee · blob(extra) · varint(inputs).
- * Coinbase-shaped iff inputs length is 0.
- */
-function isCoinbaseTxHex(hex: string): boolean {
-  const raw = hex.replace(/\s+/g, "").toLowerCase();
-  if (raw.length < 2 + 64 + 16 || raw.length % 2 !== 0) return false;
-  try {
-    const bytes = new Uint8Array(raw.length / 2);
-    for (let i = 0; i < bytes.length; i++) {
-      bytes[i] = parseInt(raw.slice(i * 2, i * 2 + 2), 16);
-    }
-    let off = 0;
-    while (off < bytes.length && bytes[off]! & 0x80) off++;
-    off++; // version
-    off += 32; // r_pub
-    off += 8; // fee
-    if (off >= bytes.length) return false;
-    const extraLen = readLeb128(bytes, off);
-    if (extraLen == null) return false;
-    off = extraLen.next;
-    off += extraLen.value;
-    const inputs = readLeb128(bytes, off);
-    return inputs != null && inputs.value === 0;
-  } catch {
-    return false;
-  }
-}
-
-function readLeb128(
-  bytes: Uint8Array,
-  off: number,
-): { value: number; next: number } | null {
-  let value = 0;
-  let shift = 0;
-  let i = off;
-  while (i < bytes.length) {
-    const b = bytes[i]!;
-    value |= (b & 0x7f) << shift;
-    i++;
-    if ((b & 0x80) === 0) return { value, next: i };
-    shift += 7;
-    if (shift > 35) return null;
-  }
-  return null;
 }
 
 function normalizeHeaders(raw: unknown): BlockHeaderSummary[] {
