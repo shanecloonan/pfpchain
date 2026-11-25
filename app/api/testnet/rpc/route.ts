@@ -88,12 +88,16 @@ export async function POST(req: NextRequest) {
 
   const upstream = upstreamUrl();
   try {
+    // Tie the upstream socket to the browser abort. A 2.5s poll used to
+    // abandon this fetch and leave mfnd holding the connection until 45s.
+    const signals = [AbortSignal.timeout(30_000)];
+    if (req.signal) signals.push(req.signal);
     const res = await fetch(upstream, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify(body),
       cache: "no-store",
-      signal: AbortSignal.timeout(45_000),
+      signal: AbortSignal.any(signals),
     });
     const text = (await res.text()).trim();
     if (!res.ok) {

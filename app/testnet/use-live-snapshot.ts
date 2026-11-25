@@ -21,8 +21,12 @@ import {
 } from "@/lib/testnet/rpc";
 import type { PrivacySampleAggregate } from "@/lib/testnet/tx-meta";
 
-/** Fast enough to catch 30s slots without looking laggy at tip updates. */
-const POLL_MS = 2_500;
+/**
+ * 30s slots. Must stay slower than a tall-tip header read so a poll is not
+ * aborted mid-fetch (B-229). Aborting every 2.5s left the homepage on
+ * "Syncing chain…" and pinned mfnd's in-flight RPC cap.
+ */
+const POLL_MS = 8_000;
 const MAX_INTERVAL_SAMPLES = 8;
 
 export type LiveSnapshotState = {
@@ -82,6 +86,7 @@ export function useLiveSnapshot(config: TestnetConfig): LiveSnapshotState {
     loading: Boolean(proxyUrl),
   });
   const abortRef = useRef<AbortController | null>(null);
+  const inFlightRef = useRef(false);
 
   useEffect(() => {
     if (!proxyUrl) return;
@@ -89,7 +94,8 @@ export function useLiveSnapshot(config: TestnetConfig): LiveSnapshotState {
     let cancelled = false;
 
     const tick = async () => {
-      abortRef.current?.abort();
+      if (inFlightRef.current) return;
+      inFlightRef.current = true;
       const ac = new AbortController();
       abortRef.current = ac;
       try {
@@ -160,6 +166,8 @@ export function useLiveSnapshot(config: TestnetConfig): LiveSnapshotState {
               ? `${msg} (blocked HTTP from HTTPS? use /api/testnet/rpc)`
               : msg,
         }));
+      } finally {
+        inFlightRef.current = false;
       }
     };
 
@@ -169,6 +177,7 @@ export function useLiveSnapshot(config: TestnetConfig): LiveSnapshotState {
       cancelled = true;
       clearInterval(id);
       abortRef.current?.abort();
+      inFlightRef.current = false;
     };
   }, [proxyUrl]);
 

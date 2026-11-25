@@ -72,7 +72,7 @@ const SESSION_KEY = "pw-testnet-wallet-session";
 const HISTORY_PREFIX = "pw-testnet-wallet-history:";
 
 /** Parallel per-height fetches when range RPC is unavailable. */
-const SCAN_FETCH_CONCURRENCY = 24;
+const SCAN_FETCH_CONCURRENCY = 4;
 /** Heights per get_block_txs_range call (observer proxy max is 32). */
 const SCAN_RANGE_SIZE = 32;
 /** Persist sync state every N heights so a stalled tab doesn't lose progress. */
